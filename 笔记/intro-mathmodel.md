@@ -348,7 +348,7 @@ Numpy是Python中一个用于数值计算的库，它提供了很多用于矩阵
 $$
 10x - y - 2a = 72,\\
 -x+10y-2z=83,\\
--x-y+5z=42.
+-x-y+5z=42.
 $$
 我们可以使用以下代码来求解这个方程组：
 
@@ -641,3 +641,404 @@ print(f'在x=1处的导数值是：{derivative_at_1}')
 ```
 
 以上示例展示了如何在Python中求解函数的积分和微分。在实际应用中，可以根据具体问题调整函数表达式、积分区间和微分点等参数。
+
+### 2.2. 使用Scipy和Sympy解微分方程
+
+前面我们见过了求微分方程解析解的一些方法，我们知道，微分方程的解本质上是通过给定函数与微分之间的关系求解出函数的表达式。但是事实上，大多数微分方程是没有解析解的，也就是无法求解出函数的具体解析式。这是不是意味着这样的微分方程不可解呢？也不尽然。在上一章中我们已经见过了，以前我们难以求解的超越方程也是可能给出数值解的，那么微分方程是否也会存在数值解呢？
+
+#### 2.2.1 使用sympy求解微分方程解析解
+
+我们此前介绍的一阶、二阶常系数线性微分方程通解的形式就是一种解析解，但在科学与工程实际中我们遇到的微分方程形式会比这些基本形式更为复杂，条件也更多。事实上多数情况下，大多数微分方程其实是求不出解析解的，只能在不同取值条件下求一个数值解。那么如何编写算法去求数值解才能使精度尽可能提高呢？数值解会随着初始条件而变化，怎么变化呢？函数值又与自变量之间怎么变化呢？
+
+在回答这些问题之前，请让我们先了解一番：如何使用python求解微分方程的解析解呢？但凡涉及到符号运算，通常都是使用sympy库实现。Sympy是一个数学符号运算库。能解决积分、微分方程等各种数学运算方法，用起来也是很简单，效果可以和Matlab媲美。其中内置的Sympy.dsolve方法是解微分方程解析解的一种良好方式，而对于有初始值的微分方程问题，我们通常在求出其通解形式后通过解方程组的方法得到参数。这个方法通过声明符号变量的方式求得最优解。
+
+例如，我们看下面这个例子： **例2.1** 使用sympy解下面这个微分方程：
+$$
+y^{''} + 2y^{'}+y=x^2.
+$$
+若使用sympy，我们首先要声明两个符号变量，其中变量`y`是变量`x`的函数。代码如下：
+
+```python
+from sympy import *
+y = symbols('y', cls=Function)
+x = symbols('x')
+eq = Eq(y(x).diff(x,2)+2*y(x).diff(x,1)+y(x), x*x)
+## y''+4y'+29y=0
+print(dsolve(eq, y(x)))
+```
+
+这段代码通过sympy中的`symbols`类创建两个实例化的符号变量`x`和`y`，在`y`中我们通过`cls`参数声明`y`是一个`scipy.Function`对象（也就是说，`y`是一个函数）。表达微分方程解析解的方法是通过创建一个`Eq`对象，这个对象分别存储方程左右两边。其中，`y(x).diff(x,2)`表明`y`是`x`的函数，然后需要取函数对`x`的2阶导数。最后，若想求解函数`y`的解析式，只需要调用`dsolve(eq,y(x))`函数即可。代码返回结果：
+
+```python
+Eq(y(x), x**2 - 4*x + (C1 + C2*x)*exp(-x) + 6)
+```
+
+可以看到，代码能够给出完整的解析式。之所以还保留了参数`C1`和`C2`是因为在求解过程中没有给微分方程指定初值。
+
+我们再来看一个例子，这个例子是使用sympy解一个常微分方程组：
+
+**例2.2** 使用sympy解下面这个常微分方程组：
+$$
+\begin{cases}\frac{dx_1}{dt}=2x_1-3x_2+3x_3,\space\space\space\space x_1(0)=1(6)\\ \frac{dx_2}{dt}=4x_1-5x_2+3x_3,\space\space\space\space x2(0)=2(7)\\ \frac{dx_3}{dt}=4x_1-4x_2+2x_3,\space\space\space\space x3(0)=3(8) \end{cases}
+$$
+这个方程组里面的x1,x2,x3*x*1,*x*2,*x*3都是关于t*t*的函数，所以需要声明四个符号变量。不同的是，在这里每个函数都指定了初始值，并且三个函数的导数高度相关，该怎么描述这种相关呢？我们来看下面的例子：
+
+```python
+t=symbols('t')
+x1,x2,x3=symbols('x1,x2,x3',cls=Function)
+eq=[x1(t).diff(t)-2*x1(t)+3*x2(t)-3*x3(t),
+    x2(t).diff(t)-4*x1(t)+5*x2(t)-3*x3(t),
+    x3(t).diff(t)-4*x1(t)+4*x2(t)-2*x3(t)]
+con={x1(0):1, x2(0):2, x3(0):3}
+s=dsolve(eq,ics=con)
+print(s)
+```
+
+sympy当中内置的`symbols`工具是可以通过字符串批量创建变量的，这为我们带来了很大的方便。如果需要求解的是一个方程组，则使用列表将每一个方程表达出来即可。这里我们采取了不创建对象的方式，而是直接将方程组移项使每个方程右侧都为`0`。通过字典的方式保存函数的初始值，并利用`ics`参数传入`dsolve`从而得到方程的解。
+
+```python
+[Eq(x1(t), 2*exp(2*t) - exp(-t)), Eq(x2(t), 2*exp(2*t) - exp(-t) + exp(-2*t)), Eq(x3(t), 2*exp(2*t) + exp(-2*t))]
+```
+
+结果返回的是一个`Eq`对象构成的列表，每个对象代表了一个函数的解析式。对于这个例子，大家可以发现：它是一个线性的微分方程组，而针对线性方程我们还可以使用矩阵的形式去表示。所以，这个问题还有第二种写法：
+
+```python
+x=Matrix([x1(t),x2(t),x3(t)])
+A=Matrix([[2,-3,3],[4,-5,3],[4,-4,2]])
+eq=x.diff(t)-A*x
+s=dsolve(eq,ics={x1(0):1, x2(0):2, x3(0):3})
+print(s)
+```
+
+通过sympy中内置的符号矩阵`Matrix`对象构造函数向量和系数矩阵，通过对方程组矩阵化也可以得出一样的结果。返回值同上。使用sympy中的符号函数绘图得到结果如下：
+
+```python
+from sympy.plotting import plot
+from sympy import *
+t=Symbol('t')
+plot(2*exp(2*t) - exp(-t), line_color='red')
+plot(2*exp(2*t) - exp(-t) + exp(-2*t), line_color='blue')
+plot(2*exp(2*t) + exp(-2*t), line_color='green')
+```
+
+![img](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240423223752.png)
+
+图2.1.2 sympy求解图
+
+sympy通过plotting下面的plot功能可以进行一些符号函数的绘图，但每一次调用都会创建一个独立的图窗，难以在同一张图上绘制多个函数的曲线。若要绘制多个函数则需要使用matplotlib来完成。
+
+#### 2.2.2 使用scipy求解微分方程数值解
+
+微分方程的数值解是什么样子的呢？虽然大多数微分方程没有解析解，但解析式也并不是唯一可以表示函数的形式。函数的表示还可以用列表法和作图法来表示，而微分方程的数值解也正是像列表一样针对自变量数组中的每一个取值给出相对精确的因变量值。
+
+Python求解微分方程数值解可以使用scipy库中的`integrate`包。在这当中有两个重要的函数：`odeint`和`solve_ivp`。但本质上，从底层来讲求解微分方程数值解的核心原理都是Euler 法和Runge-Kutta 法。关于这两个方法，我们会在后面进行进一步探讨。
+
+我们先来了解一下`odeint`的用法吧。`odeint()`函数需要至少三个变量，第一个是微分方程函数，第二个是微分方程初值，第三个是微分的自变量。为了具体了解它的用法，我们通过一个例子来分析：
+
+**例2.3** 使用scipy解下面这个微分方程的数值解：
+$$
+y^{'}=\frac{1}{1 + x^2}-2y^2,\space\space\space\space y(0)=0.
+$$
+首先需要通过`def`语句或者`lambda`表达式定义微分方程的表达式，然后定义微分方程的初值。代码如下：
+
+```python
+import matplotlib.pyplot as plt
+dy=lambda y,x: 1/(1+x**2)-2*y**2 # y'=1/(1+x^2)-2y^2
+'''
+def dy(y,x):
+    return 1/(1+x**2)-2*y**2
+'''
+x=np.arange(0,10.5,0.1) #从0开始，每次增加0.1，到10.5为止（取不到10.5）
+sol=odeint(dy,0,x) # odeint输入：微分方程dy，y的首项（y(0)等于多少），自变量列表
+print("x={}\n对应的数值解y={}".format(x,sol.T))
+plt.plot(x,sol)
+plt.show()
+```
+
+这里`odeint`函数传入的三个参数分别是函数表达式，函数的初值与自变量。自变量是一个数组，通过`numpy.arange`生成一个范围在`[0, 10.5)`的等差数列，公差为`0.1`。返回的结果`sol`是针对数组`x`中每个值的对应函数值，可以通过`matplotlib.pyplot`绘图得到函数的结果。函数的图像如图所示：
+
+![500](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240423224135.png)
+
+图2.2.1 odeint函数求解图
+
+我们再来看一个例子，这个例子是一个不可积函数的积分问题：
+
+**例2.4** 使用scipy解下面这个微分方程的数值解：
+$$
+y^{'}=\sin t^2,\space\space\space\space y(0) = 1
+$$
+仿照例2.3中的代码，这个问题可以改写为：
+
+```python
+def dy_dt(y,t):
+    return np.sin(t**2)
+y0=[1]
+t = np.arange(-10,10,0.01)
+y=odeint(dy_dt,y0,t)
+plt.plot(t, y)
+plt.show()
+```
+
+得到的结果必然是一个奇函数，图像为：
+
+![500](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240423224303.png)
+
+图2.2.2 scipy函数求解图
+
+刚刚两个例子都是讲述了一阶微分方程如何求解，那么二阶及以上的高阶微分方程如何求解呢？事实上，Python求解微分方程数值解的时候是无法直接求解高阶微分方程的，必须通过换元降次的方法实现低阶化，把一个高阶微分方程替换成若干个一阶微分方程组成的微分方程组才能求解。具体的，我们可以看下面这个例子：
+
+**例2.5** 使用scipy解下面这个高阶微分方程的数值解：
+$$
+y^{''}-20(1-y^2)y^{'}+y=0, \space\space\space\space y(0)=0,y^{'}(0)=2
+$$
+这很显然是个二阶微分方程，并且不是常系数所以不能直接给出解析解。为了给这个方程做降次，令*u*=*y*′，那么*y*′′=*u*′，式子就可以代换为：
+$$
+\begin{cases} u=y^{'},(9)\\ u^{'}-20(1-y^2)u+y=0,(10)\\ y(0)=0,(11)\\ u(0)=2.(12) \end{cases}
+$$
+
+
+对于微分方程组，我们传入`[y,u]`两个函数的原函数值，返回的函数值为`[y’,u’]`。所以，只需要对每个微分表达式给出解析形式就可以了。代码如下：
+
+```python
+# odeint是通过把二阶微分转化为一个方程组的形式求解高阶方程的
+# y''=20(1-y^2)y'-y
+def fvdp(y,t):
+    '''
+    要把y看出一个向量，y = [dy0,dy1,dy2,...]分别表示y的n阶导，那么
+    y[0]就是需要求解的函数，y[1]表示一阶导，y[2]表示二阶导，以此类推
+    '''
+    dy1 = y[1]      # y[1]=dy/dt，一阶导                     y[0]表示原函数
+    dy2 = 20*(1-y[0]**2) * y[1] - y[0]                    # y[1]表示一阶微分
+    # y[0]是最初始，也就是需要求解的函数
+    # 注意返回的顺序是[一阶导， 二阶导]，这就形成了一阶微分方程组
+    return [dy1, dy2] 
+    
+# 求解的是一个二阶微分方程，所以输入的时候同时输入原函数y和微分y'
+# y[0]表示原函数， y[1]表示一阶微分
+# dy1表示一阶微分， dy2表示的是二阶微分
+# 可以发现，dy1和y[1]表示的是同一个东西
+# 把y''分离变量分离出来： dy2=20*(1-y[0]**2)*y[1]-y[0]
+def solve_second_order_ode():
+    '''
+    求解二阶ODE
+    '''
+    x = np.arange(0,0.25,0.01)#给x规定范围
+    y0 = [0.0, 2.0] # 初值条件
+    # 初值[3.0, -5.0]表示y(0)=3,y'(0)=-5
+    # 返回y，其中y[:,0]是y[0]的值，就是最终解，y[:,1]是y'(x)的值
+    y = odeint(fvdp, y0, x)
+    
+    y1, = plt.plot(x,y[:,0],label='y')
+    y1_1, = plt.plot(x,y[:,1],label='y‘')             
+    plt.legend(handles=[y1,y1_1])   #创建图例
+    
+    plt.show()
+solve_second_order_ode()
+```
+
+定义函数`fvdp`，传入`y`的原函数值和一阶导数值（列表传入），返回`y`的一阶导数值和二阶导数值。初值条件`y(0)=0`和`y'(0)=2`传入`odeint`函数中，自变量是取值`[0, 0.25)`的一个等距数组。解得的`y`其实包含两列，第一列是函数值，第二列是导数值。结果的图像如下。
+
+![500](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240423224853.png)
+
+图2.2.3 fvdp函数求解图
+
+图2.1.5展示的是原函数$y(x)$与一阶导数$y'(x)$的图像。从图像中可以看到，原函数$y(x)$呈现出一种振荡衰减的趋势，随着$x$的增加，$y(x)$的振幅逐渐减小，最终趋于稳定。这是因为二阶微分方程中的非线性项起到了阻尼作用，当y的绝对值接近$1$时，该项的值变小，从而减弱了$y$的增长速率，导致振荡的衰减。
+
+同时，一阶导数*y*′(*x*)的图像显示出与原函数相似的振荡衰减模式，但相比之下，其变化更加剧烈。这是因为直接受到非线性阻尼项的影响，而y*y*则是间接受到影响。
+
+总的来说，这个微分方程组描述了一个非线性阻尼振荡系统，其解的行为随着初始条件和时间的变化而发生变化。在这个例子中，初始条件*y*(0)=0和*y*′(0)=2导致了一个振荡衰减的解，这种解在物理学和工程学中很常见，用于描述许多实际系统的动态行为。
+
+我们再来看一个更高阶函数的求解的案例。
+
+**例2.6** 使用scipy解下面这个高阶微分方程的数值解：
+$$
+y^{'''}+y^{''}-y^{'}+y=\cos t,\space\space\space\space y(0)=0,y^{'}=\pi ,y^{''}(0)=0
+$$
+这个案例当然可以和上面一样如法炮制，输入`[y, y', y'']`返回`[y', y'', y''']`。这里再次介绍一个案例是想引出Python求微分方程数值解的另一个函数`solve_ivp`的用法。
+
+首先，仍然是通过换元法对函数进行定义：
+
+```python
+def f(y,t):
+    dy1 = y[1]
+    dy2 = y[2]
+    dy3 = -y[0]+dy1-dy2-np.cos(t)
+    return [dy1,dy2,dy3]
+```
+
+`Solve_ivp`函数的用法与`odeint`非常类似，只不过比`odeint`多了两个参数。一个是`t_span`参数，表示自变量的取值范围；另一个是`method`参数，可以选择多种不同的数值求解算法。常见的内置方法包括`RK45`, `RK23`, `DOP853`, `Radau`, `BDF`等多种方法，通常使用`RK45`多一些。它的使用方法与`odeint`对比起来很类似，对这个问题进行代码实现如下：
+
+```python
+import numpy as np
+from scipy.integrate import odeint, solve_ivp
+import matplotlib.pyplot as plt
+
+pi = np.pi
+
+# 用于 odeint 的函数
+def f_odeint(y, t):
+    dy1 = y[1]  # First derivative
+    dy2 = y[2]  # Second derivative
+    dy3 = -y[0] + y[1] - y[2] - np.cos(t)  # Third derivative
+    return [dy1, dy2, dy3]
+
+# 用于 solve_ivp 的函数
+def f_solve_ivp(t, y):
+    dy1 = y[1]  # First derivative
+    dy2 = y[2]  # Second derivative
+    dy3 = -y[0] + y[1] - y[2] - np.cos(t)  # Third derivative
+    return [dy1, dy2, dy3]
+
+def solve_high_order_ode():
+    '''
+    求解高阶ODE
+    '''
+    t = np.linspace(0, 6, 1000)
+    tspan = (0.0, 6.0)
+    y0 = [0.0, pi, 0.0]  # 初始条件: y(0)=0, y'(0)=π, y''(0)=0
+
+    # 使用 odeint 求解
+    y_odeint = odeint(f_odeint, y0, t)
+
+    # 使用 solve_ivp 求解
+    sol = solve_ivp(f_solve_ivp, t_span=tspan, y0=y0, t_eval=t)  # Ensure the correct function is used here
+
+    plt.figure(figsize=(10, 8))
+
+    plt.subplot(211)
+    plt.plot(t, y_odeint[:, 0], label='y(0) Initial Function (odeint)')
+    plt.plot(t, y_odeint[:, 1], label='y(1) First Derivative (odeint)')
+    plt.plot(t, y_odeint[:, 2], label='y(2) Second Derivative (odeint)')
+    plt.legend()
+    plt.grid(True)
+
+    plt.subplot(212)
+    plt.plot(sol.t, sol.y[0], 'r--', label='y(0) Initial Function (solve_ivp)')
+    plt.plot(sol.t, sol.y[1], 'g--', label='y(1) First Derivative (solve_ivp)')
+    plt.plot(sol.t, sol.y[2], 'b-', label='y(2) Second Derivative (solve_ivp)')
+    plt.legend()
+    plt.grid(True)
+
+    plt.tight_layout()
+    plt.show()
+
+solve_high_order_ode()
+```
+
+> solve_ivp 和 odeint 两个函数都可以解偏微分方程，但是solve_ivp可以不考虑参数顺序，odeint必须要考虑参数顺序（经验之谈）。
+
+这里通过`matplotlib.pyplot`中提供的绘图接口绘制了两个数值解的图像。由于没有设置`method`参数，这里默认`solve_ivp`使用`RK45`（4-5阶 Runge-Kutta 法）方法进行求解。所解得的结果如图所示：
+
+![500](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240423225734.png)
+
+图2.2.4 Runge-Kutta 法求解图
+
+图中上半部分是使用`odeint`求解得到的结果，下半部分是由`solve_ivp`得到的结果，二者大差不差。一般来说对于普通的微分方程`odeint`与`solve_ivp`得到的结果差异不会太大，但有些情况下函数的微分容易发散，就会导致求解结果出现比较大的差异。`odeint`内置的原理也是4-5阶 Runge-Kutta 法，版本比较早所以求解也相对较为稳定。但`solve_ivp`则是后来新增的方法，有可能出现不太稳定的现象，内置方法较多所以也更加灵活。
+
+Python求解微分方程组的模式有两种：一是采用基于基本原理自己写相关函数，这样操作比较繁琐，但是对于整个的求解过程会比较清晰明了；第二就是利用python下面的ode求解器，熟悉相关的输入输出，就可以完成数值求解。基于这个demo，在不同方向领域可以套用不同的微分方程组模型，进行仿真求解。但无论是常微分方程组还是偏微分方程组，使用的都是同一套思路，就是用差分代替微分。
+
+**例2.7** 使用scipy解下面这个微分方程组的数值解：
+$$
+\begin{cases} x^{'}(t)=-x^3-y,(13) \\ y^{'}(t)=-y^3+x.(14) \end{cases}
+$$
+这个例子和例2.2很像，但不同的是这是也一个非线性方程组。那么，输入就需要以数组的形式传入`[x, y]`两个函数的函数值，返回它们的导数值。这里使用`solve_ivp`对这个方程组进行求解如下：
+
+```python
+def fun(t, w):
+    x = w[0]
+    y = w[1]
+    return [-x**3-y,-y**3+x]
+# 初始条件
+y0 = [1,0.5]
+yy = solve_ivp(fun, (0,100), y0, method='RK45',t_eval = np.arange(0,100,0.2) )
+t = yy.t
+data = yy.y
+plt.plot(t, data[0, :])
+plt.plot(t, data[1, :])
+plt.xlabel("时间s")
+plt.show()
+```
+
+绘制图像如图所示：
+
+![500](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240423230056.png)
+
+图2.2.5 solve_ivp函数求解图
+
+可以看到二者处于相互干扰的震荡状态，振幅随着时间的推移逐渐收敛并趋于稳定。 如果在微分方程组里面还出现了高阶微分，我们又应该怎么做呢？来看下面这个例子：
+
+**例2.8** 使用 scipy 解下面这个微分方程组的数值解：
+$$
+\begin{cases} x^{''}(t)+y^{'}(t)+3x(t)=\cos (2t),\space\space (15)\\ y^{''}(t)-4x{'}(t)+3y(t)=\sin (2t), \space\space (16) \\ x^{'}(0)=\frac{1}{5}, y^{'}(0)=\frac{6}{5},x(0)=y(0)=0.\space\space (17) \end{cases}
+$$
+这个例子就比较有趣了，在方程组里面涉及到了两个函数的导数怎么求解呢？本质上还是要使用换元法。完全可以令*u*=*x*’, *v*=*y*’，然后带入到方程组中把一个二元二阶微分方程组变为四元一阶微分方程组。代码实现如下所示：
+
+```python
+def fun(t, w):
+    x = w[0]
+    y = w[1]
+    dx = w[2]
+    dy = w[3]
+    # 求导以后[x,y,dx,dy]变为[dx,dy,d2x,d2y]
+    # d2x为w[2]，d2y为w[5]
+    return [dx,dy,-dy-3*x+np.cos(2*t),4*dx-3*y+np.sin(2*t)]
+# 初始条件
+y0 = [0,0,1/5,1/6]
+yy = solve_ivp(fun, (0,100), y0, method='RK45',t_eval = np.arange(0,100,0.2) )
+t = yy.t
+data = yy.y
+plt.figure(figsize=(12,6))
+plt.subplot(1,2,1)
+plt.plot(t, data[0, :])
+plt.plot(t, data[1, :])
+plt.legend(['x','y'])
+plt.xlabel("时间s")
+plt.subplot(1,2,2)
+plt.plot(t, data[2, :])
+plt.plot(t, data[3, :])
+plt.legend(["x' ","y' "])
+plt.xlabel("时间s")
+plt.show()
+```
+
+得到的图像如图所示：
+
+![600](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240423230519.png)
+
+图2.2.6 四元一阶方程求解图
+
+可以看到，图像呈现出一定的周期规律但并不是简谐运动。这样的方程解往往在物理学中有着实际意义，例如，这样的方程可以描述物体同时出现平动和摆动的过程中，位移-速度-加速度与角度-角速度-角加速度之间存在的关系。这样的例子曾出现在2022年全国大学生数学建模竞赛A题中，我们后面可以看到。 最后一个例子是对蝴蝶效应的求解。
+
+例2.9 使用scipy求解洛伦兹系统的数值解，参数与初始值自设：
+$$
+\begin{cases} \frac{dx}{dt}=p(y-x),(18)\\ \frac{dx}{dt}=x(r-z),(19)\\ \frac{dz}{dt}=xy-bz,(20) \end{cases}
+$$
+有前面的例子作为经验，我们知道x y z都是函数其余的都是参数。利用solve_ivp很容易求解这个系统的代码：
+
+```python
+import numpy as np
+from scipy.integrate import odeint
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
+def dmove(Point, t, sets):
+    p, r, b = sets
+    x, y, z = Point
+    return np.array([p*(y-x), x*(r-z), x*y-b*z])
+t = np.arange(0, 30, 0.001)
+P1 = odeint(dmove, (0., 1., 0.), t, args=([10., 28., 3.],))
+P2 = odeint(dmove, (0., 1.01, 0.), t, args=([10., 28., 3.],)) 
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.plot(P1[:,0], P1[:,1], P1[:,2])
+ax.plot(P2[:,0], P2[:,1], P2[:,2])
+plt.show()
+```
+
+`Mpl_toolkits.mplot3d`提供了进行三维曲线、曲面绘制的函数，这里使用里面提供的三维坐标系绘制洛伦兹系统中点的运动轨迹。我们这里基于不同的初值绘制了两个点的轨迹`P1`和`P2`，并展示在图中：
+
+![500](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240423231009.png)
+
+图2.2.7 洛伦兹系统中点的运动轨迹图
+
+可以看到，曲线的形状呈现双螺旋状，有些像蝴蝶的翅膀。所以洛伦兹系统又被叫做“蝴蝶效应”。蝴蝶效应本质上就是指，即使给这个系统的初始值一点微小的变化，曲线的形状也会出现很大不同。仅仅是把$y$改变了$0.01$，曲线的密集程度与蝴蝶翅膀的大小也是有所不同的。这是个混沌系统里面的典型案例。
+
