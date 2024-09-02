@@ -1042,3 +1042,511 @@ plt.show()
 
 可以看到，曲线的形状呈现双螺旋状，有些像蝴蝶的翅膀。所以洛伦兹系统又被叫做“蝴蝶效应”。蝴蝶效应本质上就是指，即使给这个系统的初始值一点微小的变化，曲线的形状也会出现很大不同。仅仅是把$y$改变了$0.01$，曲线的密集程度与蝴蝶翅膀的大小也是有所不同的。这是个混沌系统里面的典型案例。
 
+### 2.3. 偏微分方程的数值求解
+
+偏微分方程是针对多元函数来说的，它在物理学中有着很深刻的现实意义。但是，偏微分方程往往比常微分方程更难求解，并且Python也没有提供偏微分方程的专用工具包。怎么求解这些偏微分方程呢？我们要始终把握一个思想：就是把连续的问题离散化。这一节会通过一系列的物理案例来看到Python如何求解一些典型的偏微分方程。
+
+#### 2.3.1. 偏微分方程数值解的理论基础
+
+偏微分方程实际上就是由多元函数、自变量与多元函数的偏导数及高阶偏导数之间构成的方程。它在工程中很多地方都有深刻应用，比如波动力学、热学、电磁学等。我们常研究的就是二元函数的二阶偏微分方程，其基本形式为：
+$$
+A\frac{\delta^2 f}{\delta x^2} + 2B\frac{\delta^2 f}{\delta x\delta y} +C\frac{\delta^2 f}{\delta y^2}+D\frac{\delta f}{\delta x}+E\frac{\delta f}{\delta y}+Ff=0.
+$$
+在方程中，如果*A*、*B*、*C*三个常系数不全为0，定义判别式Δ=*B^2−4AC*，当判别式大于0称其为双曲线式方程；若判别式等于0，则称其为抛物线式方程；若判别式小于0，则称其为椭圆式方程。有关于这几类方程的基本性质与边界条件等内容请感兴趣的读者自行参考偏微分方程领域的书籍，我们的主要目光更多的聚焦在它的应用上。
+
+刚刚我们说到，二阶偏微分方程主要有三类：椭圆方程，抛物方程和双曲方程。双曲方程描述变量以一定速度沿某个方向传播，常用于描述振动与波动问题。椭圆方程描述变量以一定深度沿所有方向传播，常用于描述静电场、引力场等稳态问题。抛物方程描述变量沿下游传播，常用于描述热传导和扩散等瞬态问题。它们都在工程中有实际应用。
+
+偏微分方程的定解问题通常很难求出解析解，只能通过数值计算方法对偏微分方程的近似求解。常用偏微分方程数值解法有包括有限差分方法、有限元方法、有限体方法、共轭梯度法，等等。在使用这些数值方法时通常先对问题的求解区域进行网格剖分，然后将定解问题离散为代数方程组，求出在离散网格点上的近似值。
+
+偏微分方程的典型应用有很多。描述热源传热过程中温度变化的热传导方程本质上是一个抛物类微分方程。大名鼎鼎的韦东奕大神所着重研究的纳维-斯托克斯方程，所描述的是流体流速与流体密度、压力、外阻力之间的关系，在机械工程、能源工程等制造领域有着重要应用。还有电磁场中非常重要的麦克斯韦方程组，本质上也是偏微分方程。下面我们会根据一系列的具体应用来看如何去构建与求解微分方程。
+
+#### 2.3.2 偏微分方程数值解的应用案例
+
+解偏微分方程由于缺少特定的工具包，更多的情况下需要自己写代码求解。这就迫使我们不得不理解微分方程求解的核心思想：以离散代替连续，用差分逼近微分。 一类有限差分法求解偏微分方程数值解的步骤包括如下几步：
+
+1. 定义初始条件函数 *U*(*x*,0)；
+2. 输入模型参数，对于待求解函数*F*(*x*,*t*)定义求解的时间域(tStart,tEnd)和空间域(xMin,xMax)，设置差分步长d*t*, nNodes；
+3. 初始化解空间；
+4. 根据递推规则递推求解差分方程在区间`[xa, xb]`的数值解，获得网格节点的处的函数值，最终填满整个解空间。
+
+我们首先用一个常微分方程的应用揭示这一过程。
+
+**例2.10** 使用偏微分方程对RC电路进行建模，分析电容放电过程中电量随时间的变化。 ![400](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240423231638.png)
+
+图2.3.1 洛伦兹系统中点的运动轨迹图
+
+式子中*I*代表了电流，*R*代表电阻值，*Q*代表电容电量，*C*代表电容值。为什么这个电路叫*RC*电路？这不仅仅是由于电路中包括电阻和电容两个核心元件，也是指*τ*=*RC*的乘积是一个重要的参数。令，这个常微分方程存在很明显的解析解：
+$$
+Q(t)=Q_0e^{-t/r}
+$$
+那么我们为什么还要来谈这个案例？我想通过这个案例来给大家讲述一下把一个连续问题离散化的方法。我们先从一阶微分方程的计算原理说起。将一阶微分方程离散化，实际上也就是把它写成迭代、差分的形式。对于一个连续的问题有
+$$
+\begin{cases} \frac{dy}{dt}=f(y,t),(21)\\ y_0(t_0)=y_0.(22)\\ \end{cases}
+$$
+画出y(t)*y*(*t*)的图像如图所示：
+
+![img](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240423232711.png)
+
+图2.3.2 y(t)图象
+
+在图中，如果求解区间为$[x_0, x_0+h]$，已知点$(x_{0},f(x_{0}))$，要求解$f(x_0+h)$应该怎么做？根据微分方程$f(x,y)=0$可以很容易地解得每个点的导数值。在距离$h$很小的情况下，我们说，切线与割线是可以逼近的，也就可以用切线的对应值逼近函数值。但在上图中，我们发现：如果使用$x_0$点处的导数作为切线斜率，那么得到的估计值是比实际值要小的；但如果使用$x_0+h$点的导数作为斜率，那么估计值比实际值又大一些。能不能取一个折中的方案呢？很简单，把二者进行一个平均就可以了： $$ y_{n+1} = y_{n} + \frac{f(y_{n}, t_{n}) + f(y_{n+1}, t_{n+1})}{2} h. \tag{2.3.5} $$ 那么对于例2.10中的电容放电过程，这个问题的代码可以这样写：
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+rc = 2.0 #设置常数
+dt = 0.5 #设置步长
+n = 1000 #设置分割段数
+t = 0.0 #设置初始时间
+q = 1.0 #设置初始电量
+#先定义三个空列表
+qt=[] #用来盛放差分得到的q值
+qt0=[] #用来盛放解析得到的q值
+time = [] #用来盛放时间值
+for i in range(n):
+    t = t + dt
+    q1 = q - q*dt/rc #qn+1的近似值
+    q = q - 0.5*(q1*dt/rc + q*dt/rc) #差分递推关系
+    q0 = np.exp(-t/rc) #解析关系
+    qt.append(q) #差分得到的q值列表
+    qt0.append(q0) #解析得到的q值列表
+    time.append(t) #时间列表
+plt.plot(time,qt,'o',label='Euler-Modify') #差分得到的电量随时间的变化
+plt.plot(time,qt0,'r-',label='Analytical') #解析得到的电量随时间的变化
+plt.xlabel('time')
+plt.ylabel('charge')
+plt.xlim(0,20)
+plt.ylim(-0.2,1.0)
+plt.legend(loc='upper right')
+plt.show()
+```
+
+这个案例我们没有用任何包里面的微分方程求解器，纯手写的情况下解了这个微分方程。它的结果如图所示：
+
+![500](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240423233132.png)
+
+图2.3.3 电容放电曲线
+
+这个方法被称为**Euler 法**，是在求解常微分方程中的一种常见数值方法。
+
+**例2.11** 一维热传导方程是一个典型的抛物型二阶偏微分方程。设u(x,t)*u*(*x*,*t*)表示在时间t*t*,空间x*x*处的温度，则根据傅里叶定律(单位时间内流经单位面积的热量和该处温度的负梯度成正比),可以导出热传导方程：
+$$
+\frac{\delta u}{\delta t} = \lambda \frac{\delta^2u}{\delta x^2}
+$$
+其中*λ*称为热扩散率，*k*,*C*,*p*分别为热导率，比热和质量密度，是由系统本身确定的常量。问题的形式为：
+$$
+\frac{\delta u(x,t)}{\delta t} = \lambda \frac{\delta^2u(x,t)}{\delta x^2}\\
+0 \le t \le 1000,0 \le x \le 3\\
+u(x,0)=4x(3-x)\\
+u(0, t)=u(3,t)=0
+$$
+请求解这个问题的数值解。
+
+一元函数的微分方程可以绘制曲线，那么二元函数的偏微分方程应该就可以绘制曲面。那么，怎么对这个问题进行离散化呢？对于一个一般的二阶抛物型偏微分方程：
+$$
+\frac{\delta u(x,t)}{\delta t} = \lambda \frac{\delta^2u(x,t)}{\delta x^2}\\
+0\le t\le T,0\le x \le l\\
+u(x,0)=f(x)\\
+u(0, t)=g_1(t)\\
+u(3,t)=g_2(t)
+$$
+对时间和空间的一阶偏导数微分是容易离散化的：
+$$
+\frac{\delta u(x_i, t_k)}{\delta t_k} \longrightarrow \frac{u(x_i,t_{k + 1}) - u(x_i, t_k)}{\Delta t},\\
+\frac{\delta u(x_i, t_k)}{\delta x_i} \longrightarrow \frac{u(x_{i + 1},t_k) - u(x_i, t_k)}{\Delta x}.
+$$
+那么，对于空间的二阶微分，可以看作是一阶微分的再微分：
+$$
+\frac{\delta^2 u(x_i, t_k)}{\delta x_i^2} \longrightarrow \frac{\frac{u(x_{i + 1}, t_k) - u(x_i, t_k)}{\Delta x} - \frac{u(x_i, t_k)-u(x_{i - 1},t_k)}{\Delta x}}{\Delta x}
+$$
+也就是
+$$
+\frac{u(x_{i  +1}, t_k) + u(x_{i - 1}, t_k)-2u(x_i,t_k)}{(\Delta x)^2}
+$$
+了解了这个原理，我们将例2.11中的边界条件和迭代规则进行翻译如下：
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+
+h = 0.1#空间步长
+N =30#空间步数
+dt = 0.0001#时间步长
+M = 10000#时间的步数
+A = dt/(h**2) #lambda*tau/h^2
+U = np.zeros([N+1,M+1])#建立二维空数组
+Space = np.arange(0,(N+1)*h,h)#建立空间等差数列，从0到3，公差是h
+#边界条件
+for k in np.arange(0,M+1):
+    U[0,k] = 0.0
+    U[N,k] = 0.0
+#初始条件
+for i in np.arange(0,N):
+    U[i,0]=4*i*h*(3-i*h)
+#递推关系
+for k in np.arange(0,M):
+    for i in np.arange(1,N):
+        U[i,k+1]=A*U[i+1,k]+(1-2*A)*U[i,k]+A*U[i-1,k]
+```
+
+将解空间抽象为以时间为横坐标、空间为纵坐标的网格，翻译时间与空间的边界条件，对于网格内每个点使用二重循环遍历每个点，根据差分后的迭代方程进行演化。不同时刻的温度随空间坐标的变化图像如下：
+
+```python
+plt.plot(Space,U[:,0], 'g-', label='t=0',linewidth=1.0)
+plt.plot(Space,U[:,3000], 'b-', label='t=3/10',linewidth=1.0)
+plt.plot(Space,U[:,6000], 'k-', label='t=6/10',linewidth=1.0)
+plt.plot(Space,U[:,9000], 'r-', label='t=9/10',linewidth=1.0)
+plt.plot(Space,U[:,10000], 'y-', label='t=1',linewidth=1.0)
+plt.ylabel('u(x,t)', fontsize=20)
+plt.xlabel('x', fontsize=20)
+plt.xlim(0,3)
+plt.ylim(-2,10)
+plt.legend(loc='upper right')
+plt.show()
+```
+
+![500](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240423234214.png)
+
+在图中可以看到，随着时间的推进，温度分布呈现出一种动态变化的过程。在$t = 0$时（绿线），我们看到起始的温度分布情况；随着时间的推移，图中的曲线显示出温度在不同位置的变化。
+
+- 在 *t*=3/10（蓝线）时，曲线稍微上升，表明温度在增加。
+- 到了 *t*=6.10（黑线），温度继续上升，但上升的速度似乎开始减缓。
+- *t*=9/10（红线）时，曲线达到高点之后开始回落，这可能意味着一个冷却过程的开始。
+- 到*t*=1（黄线）时，温度分布与时相比t=0*t*=0明显增高，但比*t*=9/10时有所降低，显示了经过一段时间后温度分布的稳定状态。
+
+整体上，这些曲线描述了温度如何随着时间从初始状态演变到一个稳态分布。这种分析对于理解热传导、扩散过程，以及如何在时间上控制温度分布都是非常有用的。图形的yy轴显示的是*u*(*x*,*t*)，即位置*x*在时间t*t*的温度，而x轴表示空间坐标。曲线下方较深的颜色表示较低的温度值，而曲线顶部较浅的颜色表示较高的温度值。通过设置坐标轴的范围和图例的位置，这张图为观察者提供了清晰的数据解读。
+
+图中的yy轴标记为 ，表示在位置x和时间t的温度，x轴标记为*x*表示空间坐标。可视窗口的设置为*x*值从0到3，*u*(*x*,*t*)的值从−2到10。
+
+将整个网格空间的温度分布热力图绘制如图所示：
+
+```python
+#温度等高线随时空坐标的变化，温度越高，颜色越偏红
+extent = [0,1,0,3] #时间和空间的取值范围
+levels = np.arange(0,10,0.1)#温度等高线的变化范围0-10，变化间隔为0.1
+plt.contourf(U,levels,origin='lower',extent=extent,cmap=plt.cm.jet)
+plt.ylabel('x', fontsize=20)
+plt.xlabel('t', fontsize=20)
+plt.show()
+```
+
+![500](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240423234553.png)
+
+从图中可以看到的是一个温度分布的热力图，其中颜色的变化表明了不同温度的区域。温度越高，颜色越偏向红色，温度较低的区域则显现为蓝色。这种热力图通常用于显示温度如何在空间内分布以及如何随时间变化。 图中的$\mathrm{y}$轴（标记为$x$）代表空间坐标，而$\mathrm{x}$轴（标记为$t$）代表时间。热力图覆盖的范围是时间从 $0$ 到 $1$，空间从 $0$ 到 $3$。可以清晰地看到，在图的左侧（时间较早）温度整体较低，而在图的右侧（时间较晚）温度较高，这表示随着时间的推移，整体温度有所上升。
+
+等温线的密集区表示温度变化较大的区域，而等温线的稀疏区则表示温度变化较小的区域。从热力图中我们可以推断，最高温区域集中在图的右上角，而最低温区域则在左下角。通过色彩的深浅变化，我们可以直观地看到温度在空间中如何变化以及时间对这种分布的影响。
+
+**例2.12** 平流过程是大气运动中重要的过程。平流方程（Advection equation）描述某一物理量的平流作用而引起局地变化的物理过程，最简单的形式是一维平流方程。
+$$
+\frac{\delta u}{\delta t} + v\frac{\delta u}{\delta x} = 0,\\
+u(x,0)=F(x).
+$$
+式中*u*为某物理量，*v*为系统速度，*x*为水平方向分量，*t*为时间。该方程可以求得解析解：
+$$
+u(x,t)=F(x-vt).
+$$
+考虑一维线性平流偏微分方程的数值解法，采用有限差分法求解。简单地， 采用一阶迎风格式的差分方法（First-order Upwind)，一阶导数的差分表达式为：
+$$
+\frac{\delta u}{\delta x} |_{i,j} \longrightarrow \frac{u_{i + 1, j} - u_{i, j}}{\Delta x},\\
+u_{i, j+1} = u_{i, j} - v\frac{\Delta t}{\Delta x}(u_{i,j} - u_{i - 1,j}).
+$$
+代码实现如下：
+
+```python
+# eg.3. 
+import numpy as np
+import matplotlib.pyplot as plt
+# 初始条件函数 U(x,0)
+def funcUx_0(x, p): 
+    u0 = np.sin(2 * (x-p)**2)
+    return u0
+# 输入参数
+v1 = 1.0  # 平流方程参数，系统速度
+p = 0.25  # 初始条件函数 u(x,0) 中的参数
+tc = 0  # 开始时间
+te = 1.0  # 终止时间: (0, te)
+xa = 0.0  # 空间范围: (xa, xb)
+xb = np.pi
+dt = 0.02  # 时间差分步长
+nNodes = 100  # 空间网格数
+# 初始化
+nsteps = round(te/dt)
+dx = (xb - xa) / nNodes
+x = np.arange(xa-dx, xb+2*dx, dx)
+ux_0 = funcUx_0(x, p)
+u = ux_0.copy()  # u(j)
+ujp = ux_0.copy()  # u(j+1)
+# 时域差分
+for i in range(nsteps):
+    plt.clf()  # 清除当前 figure 的所有axes, 但是保留当前窗口
+    # 计算 u(j+1)
+    for j in range(nNodes + 2):
+        ujp[j] = u[j] - (v1 * dt/dx) * (u[j] - u[j-1])
+    # 更新边界条件
+    u = ujp.copy()
+    u[0] = u[nNodes + 1]
+    u[nNodes+2] = u[1]
+    tc += dt
+    # 绘图
+plt.plot(x, u, 'b-', label="v1= 1.0")
+plt.axis((xa-0.1, xb + 0.1, -1.1, 1.1))
+plt.xlabel("x")
+plt.ylabel("U(x)")
+plt.legend(loc=(0.05,0.05))
+plt.show()
+```
+
+![500](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240423235312.png)
+
+图2.3.6 平流大气运动图
+
+从图中可以发现，函数$U(x)$显示了随空间$x$变化的波动性质。这个波动可能代表一维平流方程在某一特定时间$t$的数值解。图中蓝色的线表示速度$v_{1} = 1.0$下的解，而波形的变化暗示了初态条件$U(x,0) = \sin \big[ 2(x-p)^{2} \big]$随时间的演化。
+
+注意到曲线在x轴的不同位置出现了波峰和波谷，这表明了函数值随位置的变化并非均匀。由于是一阶迎风格式的数值解法，我们可能会观察到与理论解相比有一定程度的数值扩散或者数值耗散，这是由于一阶方法在数值传输过程中的固有特性。
+
+在这个示例中，曲线的形状可能表示了经过一段时间演化后，平流作用在初始条件*U*(*x*,0)上的效果。如果初始波形移动的速度是*v*1，那么这个图形可能表明波形随着时间的推进而向右移动。然而，由于是一阶迎风差分，我们也可以预期波形会有一定程度的变形，这在实际中表现为波峰变得不那么尖锐，以及波形整体变得更加平坦。这是数值方法的离散化误差导致的结果。
+
+这个数值解可以帮助理解平流方程在数值模拟中的行为，特别是当理论解难以获得时，数值方法提供了一种有效的途径来近似解决实际问题。
+
+**例2.13** 波动方程（wave equation）是典型的双曲偏微分方程，广泛应用于声学，电磁学，和流体力学等领域，描述自然界中的各种的波动现象，包括横波和纵波，例如声波、光波和水波。考虑如下二维波动方程的初边值问题：
+
+![](G:\code\Intro-mathmodel\笔记\屏幕截图 2024-09-02 211400.png)它的代码实现如下：
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+# 模型参数
+c = 1.0  # 波的传播速率
+tc, te = 0.0, 1.0  # 时间范围，0<t<te
+xa, xb = 0.0, 1.0  # 空间范围，xa<x<xb
+ya, yb = 0.0, 1.0  # 空间范围，ya<y<yb
+# 初始化
+c2 = c*c  # 方程参数
+dt = 0.01  # 时间步长
+dx = dy = 0.02  # 空间步长
+tNodes = round(te/dt)  # t轴 时序网格数
+xNodes = round((xb-xa)/dx)  # $\mathrm{x}$轴 空间网格数
+yNodes = round((yb-ya)/dy)  # $\mathrm{y}$轴 空间网格数
+tZone = np.arange(0, (tNodes+1)*dt, dt)  # 建立空间网格
+xZone = np.arange(0, (xNodes+1)*dx, dx)  # 建立空间网格
+yZone = np.arange(0, (yNodes+1)*dy, dy)  # 建立空间网格
+xx, yy = np.meshgrid(xZone, yZone)  # 生成网格点的坐标 xx,yy (二维数组)
+# 步长比检验(r>1 则算法不稳定)
+r = 4 * c2 * dt*dt / (dx*dx+dy*dy)
+print("dt = {:.2f}, dx = {:.2f}, dy = {:.2f}, r = {:.2f}".format(dt,dx,dy,r))
+assert r < 1.0, "Error: r>1, unstable step ratio of dt2/(dx2+dy2) ."
+rx = c*c * dt**2/dx**2
+ry = c*c * dt**2/dy**2
+# 绘图
+fig = plt.figure(figsize=(8,6))
+ax1 = fig.add_subplot(111, projection='3d')
+# 计算初始值
+U = np.zeros([tNodes+1, xNodes+1, yNodes+1])  # 建立三维数组
+U[0] = np.sin(6*np.pi*xx)+np.cos(4*np.pi*yy)  # U[0,:,:]
+U[1] = np.sin(6*np.pi*xx)+np.cos(4*np.pi*yy)  # U[1,:,:]
+surf = ax1.plot_surface(xx, yy, U[0,:,:], rstride=2, cstride=2, cmap=plt.cm.coolwarm)
+# 有限差分法求解
+for k in range(2,tNodes+1):
+    for i in range(1,xNodes):
+        for j in range(1,yNodes):
+            U[k,i,j] = rx*(U[k-1,i-1,j]+U[k-1,i+1,j]) + ry*(U[k-1,i,j-1]+U[k-1,i,j+1])\
+                     + 2*(1-rx-ry)*U[k-1,i,j] -U[k-2,i,j]
+surf = ax1.plot_surface(xx, yy, U[k,:,:], rstride=2, cstride=2, cmap='rainbow')
+ax1.set_xlim3d(0, 1.0)
+ax1.set_ylim3d(0, 1.0)
+ax1.set_zlim3d(-2, 2)
+ax1.set_title("2D wave equationt (t= %.2f)" % (k*dt))
+ax1.set_xlabel("x")
+ax1.set_ylabel("y")
+plt.show()
+```
+
+这个函数是一个三元函数，实际上是可以做出一个曲面随时间变化的动画的。大家可以尝试使用matplotlib提供的动画功能进行绘制，这里展示其中一个瞬时状态：
+
+![500](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424000918.png)
+
+图2.3.7 波形方程求解图
+
+**例2.14** 热传导方程（heat equation）是典型的抛物形偏微分方程，也成为扩散方程。广泛应用于声学，电磁学，和流体力学等领域，描述自然界中的各种的波动现象，包括横波和纵波，例如声波、光波和水波。之前的例2.11我们已经看到了一维热传导方程的求解，现在考虑如下二维热传导方程的初边值问题： 
+$$
+\begin{align} \frac{ \partial u }{ \partial t } &= \lambda \left( \frac{ \partial^{2} u }{ \partial x^{2} + \frac{ \partial^{2} u }{ \partial y^{2} } } \right) + q_{v}\\[0.5em] \frac{ \partial u(0, x, y) }{ \partial t } &= 0\\[0.5em] u(x,y,0) &= u_{0}(x,y),\\[0.5em] u(0,y,t) &= u_{a}(t), \quad u(1,y,t) = u_{b}(t),\\[0.5em] u(x,0,t) &= u_{c}(t), \quad u(x,1,t) = u_{d}(t).\\[0.5em] \end{align} \tag{2.3.17}
+$$
+  类似的，同上一个例子中的有限差分法，我们将这个方程离散化可以得到： 
+$$
+\begin{align} r_{x} &= \lambda^{2} \frac{(\Delta t)^{2}}{(\Delta x)^{2}}, \\[0.5em] r_{y} &= \lambda^{2} \frac{(\Delta t)^{2}}{(\Delta y)^{2}}, \\[0.5em] u_{i,j,k+1} &= r_{x}\big( u_{i-1,j,k} + u_{i+1,j,k} \big) \\ &+ 2\big( 1 - r_{x} - r_{y} \big) u_{i,j,k} + r_{y} \big( u_{i,j-1,k} + u_{i,j+1,k} \big) - u_{i,j,k-1}. \end{align} \tag{2.3.18}
+$$
+  事实上，这个方程还有一种矩阵形式： 
+$$
+U_{k+1} = U_{k} + r_{x}AU_{k} + r_{y}BU_{k} + q_{v}\Delta t, \tag{2.3.19}
+$$
+  其中 
+$$
+ A = \left[ \begin{matrix} -2 & -1 & 0 & \cdots & 0 & 0\\ 1 & -2 & 1 & \cdots & 0 & 0\\ 0 & 1 & -2 & \cdots & 0 & 0\\ \vdots & \vdots & \vdots & \ddots & \vdots & \vdots\\ 0 & 0 & 0 & \cdots & 1 & -2 \end{matrix} \right]_{N_{x} \times N_{x}}, \quad B = \left[ \begin{matrix} -2 & -1 & 0 & \cdots & 0 & 0\\ 1 & -2 & 1 & \cdots & 0 & 0\\ 0 & 1 & -2 & \cdots & 0 & 0\\ \vdots & \vdots & \vdots & \ddots & \vdots & \vdots\\ 0 & 0 & 0 & \cdots & 1 & -2 \end{matrix} \right]_{N_{y} \times N_{y}}. \tag{2.3.20} 
+$$
+ 我们这次就用这个矩阵形式去进行偏微分方程的求解：
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+def showcontourf(zMat, xyRange, tNow):  # 绘制等温云图
+    x = np.linspace(xyRange[0], xyRange[1], zMat.shape[1])
+    y = np.linspace(xyRange[2], xyRange[3], zMat.shape[0])
+    xx,yy = np.meshgrid(x,y)
+    zMax = np.max(zMat)
+    yMax, xMax = np.where(zMat==zMax)[0][0], np.where(zMat==zMax)[1][0]
+    levels = np.arange(0,100,1)
+    showText = "time = {:.1f} s\nhotpoint = {:.1f} C".format(tNow, zMax)
+    plt.plot(x[xMax],y[yMax],'ro')  # 绘制最高温度点
+    plt.contourf(xx, yy, zMat, 100, cmap=plt.cm.get_cmap('jet'), origin='lower', levels = levels)
+    plt.annotate(showText, xy=(x[xMax],y[yMax]), xytext=(x[xMax],y[yMax]),fontsize=10)
+    plt.colorbar()
+    plt.xlabel('X')
+    plt.ylabel('Y')
+    plt.title('Temperature distribution of the plate')
+    plt.show()
+# 模型参数
+uIni = 25  # 初始温度值
+uBound = 25.0  # 边界条件
+c = 1.0  # 热传导参数
+qv = 50.0  # 热源功率
+x_0, y0 = 0.0, 3.0  # 热源初始位置
+vx, vy = 2.0, 1.0  # 热源移动速度
+# 求解范围
+tc, te = 0.0, 5.0  # 时间范围，0<t<te
+xa, xb = 0.0, 16.0  # 空间范围，xa<x<xb
+ya, yb = 0.0, 12.0  # 空间范围，ya<y<yb
+# 初始化
+dt = 0.002  # 时间步长
+dx = dy = 0.1  # 空间步长
+tNodes = round(te/dt)  # t轴 时序网格数
+xNodes = round((xb-xa)/dx)  # $\mathrm{x}$轴 空间网格数
+yNodes = round((yb-ya)/dy)  # $\mathrm{y}$轴 空间网格数
+xyRange = np.array([xa, xb, ya, yb])
+xZone = np.linspace(xa, xb, xNodes+1)  # 建立空间网格
+yZone = np.linspace(ya, yb, yNodes+1)  # 建立空间网格
+xx,yy = np.meshgrid(xZone, yZone)  # 生成网格点的坐标 xx,yy (二维数组)
+# 计算 差分系数矩阵 A、B (三对角对称矩阵)，差分系数 rx,ry,ft
+A = (-2) * np.eye(xNodes+1, k=0) + (1) * np.eye(xNodes+1, k=-1) + (1) * np.eye(xNodes+1, k=1)
+B = (-2) * np.eye(yNodes+1, k=0) + (1) * np.eye(yNodes+1, k=-1) + (1) * np.eye(yNodes+1, k=1)
+rx, ry, ft = c*dt/(dx*dx), c*dt/(dy*dy), qv*dt
+# 计算 初始值
+U = uIni * np.ones((yNodes+1, xNodes+1))  # 初始温度 u0
+# 前向Euler 法一阶差分求解
+for k in range(tNodes+1):
+    t = k * dt  # 当前时间
+    # 热源条件
+    # (1) 恒定热源：Qv(x_0,y0,t) = qv, 功率、位置 恒定
+    # Qv = qv
+    # (2) 热源功率随时间变化 Qv(x_0,y0,t)=f(t)
+    # Qv = qv*np.sin(t*np.pi) if t<2.0 else qv
+    # (3) 热源位置随时间变化 Qv(x,y,t)=f(x(t),y(t))
+    xt, yt = x_0+vx*t, y0+vy*t  # 热源位置变化
+    Qv = qv * np.exp(-((xx-xt)**2+(yy-yt)**2))  # 热源方程
+    # 边界条件
+    U[:,0] = U[:,-1] = uBound
+    U[0,:] = U[-1,:] = uBound
+    # 差分求解
+    U = U + rx * np.dot(U,A) + ry * np.dot(B,U) + Qv*dt
+    if k % 100 == 0:
+        print('t={:.2f}s\tTmax={:.1f}  Tmin={:.1f}'.format(t, np.max(U), np.min(U)))
+showcontourf(U, xyRange, k*dt)  # 绘制等温云图
+```
+
+这段代码只需要把`showcontourf`放在循环体内即可实现动画效果，可以清晰看到热源在空间中的分布。我这里展示最后状态下的温度分布图：
+
+![500](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424222139.png)
+
+图2.3.8 温度空间分布图
+
+最终状态下的温度分布图显示了热源随时间在平板中移动的情况，并将热量传递给周围材料。图像中的红点标记了最高温度点，即‘热点’，对应于最后时间步骤中热源的当前位置。颜色渐变代表温度分布，红色是最热的区域，蓝色是最冷的。等温线表示温度相等的水平线。
+
+热点周围的温度梯度平滑，这表明热量通过平板均匀扩散。这样的模拟在许多应用中都很有用，例如在散热器设计、理解制造过程中的热梯度，甚至在诸如地热源传播热量的自然现象中。
+
+**例2.15** 椭圆偏微分方程是一类重要的偏微分方程，主要用来描述物理的平衡稳定状态，如定常状态下的电磁场、引力场和反应扩散现象等，广泛应用于流体力学、弹性力学、电磁学、几何学和变分法中。 考虑如下二维 Poisson 方程：
+
+![](G:\code\Intro-mathmodel\笔记\屏幕截图 2024-09-02 211736.png)
+
+这个方程怎么解呢？考虑二维椭圆偏微分方程的数值解法，采用有限差分法求解。简单地，采用五点差分格式表示二阶导数的差分表达式，将上述的偏微分方程离散为差分方程：
+
+![](G:\code\Intro-mathmodel\笔记\屏幕截图 2024-09-02 211820.png)
+
+椭圆型偏微分描述不随时间变化的均衡状态，没有初始条件，因此不能沿时间步长递推求解。对上式的差分方程，可以通过矩阵求逆方法求解，但当h*h*较小时网格很多，矩阵求逆的内存占用和计算量极大。于是，可以使用迭代松弛法递推求得二维椭圆方程的数值解。假定x*x*和y*y*的间距都为h*h*，松弛系数为w*w*，则迭代过程可以表示为：
+
+![](G:\code\Intro-mathmodel\笔记\屏幕截图 2024-09-02 211840.png)
+
+考虑一个特殊情况，也就是当*f*(*x*,*y*)=0的情况下，迭代松弛法的代码如下：
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+# 求解范围
+xa, xb = 0.0, 1.0  # 空间范围，xa<x<xb
+ya, yb = 0.0, 1.0  # 空间范围，ya<y<yb
+# 初始化
+h = 0.01  # 空间步长, dx = dy = 0.01
+w = 0.5  # 松弛因子
+nodes = round((xb-xa)/h)  # $\mathrm{x}$轴 空间网格数
+# 边值条件
+u = np.zeros((nodes+1, nodes+1))
+for i in range(nodes+1):
+    u[i, 0] = 1.0 + np.sin(0.5*(i-50)/np.pi)
+    u[i, -1] = -1.0 + 0.5*np.sin((i-50)/np.pi)
+    u[0, i] = -1.0 + 0.5*np.sin((i-50)/np.pi)
+    u[-1, i] = 1.0 + np.sin(0.5*(50-i)/np.pi)
+# 迭代松弛法求解
+for iter in range(100):
+    for i in range(1, nodes):
+        for j in range(1, nodes):
+            u[i, j] = w/4 * (u[i-1, j] + u[i+1, j] + u[i, j-1] + u[i, j+1]) + (1-w) * u[i, j]
+# 绘图
+x = np.linspace(0, 1, nodes+1)
+y = np.linspace(0, 1, nodes+1)
+xx, yy = np.meshgrid(x, y)
+fig = plt.figure(figsize=(8,6))
+ax = fig.add_subplot(111, projection='3d')
+surf = ax.plot_surface(xx, yy, u, cmap=plt.get_cmap('rainbow'))
+fig.colorbar(surf, shrink=0.5)
+ax.set_xlim3d(0, 1.0)
+ax.set_ylim3d(0, 1.0)
+ax.set_zlim3d(-2, 2.5)
+ax.set_title("2D elliptic partial differential equation")
+ax.set_xlabel("X")
+ax.set_ylabel("Y")
+plt.show()
+```
+
+![500](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424222706.png)
+
+从图中可以看到，解呈现出一系列波峰和波谷，这与边界条件的正弦函数有关。每个波峰和波谷都是颜色映射中的热点和冷点，分别代表着方程解的局部最大值和最小值。波峰出现在和轴的中间位置，而波谷则出现在四个角和边缘。颜色的变化代表了解的幅度，从红色的高值到蓝色的低值。整体上，解的形状表现出了椭圆方程特有的对称性和周期性。
+
+sympy中的`pdsolve`给出了一些简单偏微分方程的解析解法，但sympy目前不支持二阶偏微分方程的求解。`pdsolve`的调用格式形如`pdsolve(eq, func=None, hint='default', dict=False, solvefun=None, **kwargs)`，具体使用我们可以看到下面的例子：
+
+**例2.16** 使用sympy中的`pdsolve`解下面这个偏微分方程：
+$$
+-2\frac {\delta f}{\delta x} + 4\frac{\delta f}{\delta y} + 5f = e^{x + 3y} 
+$$
+可以给出如下代码：
+
+```python
+from sympy.solvers.pde import pdsolve
+from sympy import Function, pprint, exp
+from sympy.abc import x,y
+f = Function('f')
+eq = -2*f(x,y).diff(x) + 4*f(x,y).diff(y) + 5*f(x,y) - exp(x + 3*y)
+pdsolve(eq)
+```
+
+给出的结果为：
+
+```python
+Eq(f(x, y), (F(4*x + 2*y)*exp(x/2) + exp(x + 4*y)/15)*exp(-y))
+```
+
+![500](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424222941.png)
+
+图2.3.10 pdsolve求解方程图
+
+\## 2.4 微分方程的应用案例
+
+在本节中，我们将探讨微分方程在现实世界中的应用，特别是在工业和日常生活中的一些实例。通过这些案例，我们可以加深对微分方程建模过程的理解。
