@@ -1060,7 +1060,7 @@ $$
 
 偏微分方程的典型应用有很多。描述热源传热过程中温度变化的热传导方程本质上是一个抛物类微分方程。大名鼎鼎的韦东奕大神所着重研究的纳维-斯托克斯方程，所描述的是流体流速与流体密度、压力、外阻力之间的关系，在机械工程、能源工程等制造领域有着重要应用。还有电磁场中非常重要的麦克斯韦方程组，本质上也是偏微分方程。下面我们会根据一系列的具体应用来看如何去构建与求解微分方程。
 
-#### 2.3.2 偏微分方程数值解的应用案例
+#### 2.3.2. 偏微分方程数值解的应用案例
 
 解偏微分方程由于缺少特定的工具包，更多的情况下需要自己写代码求解。这就迫使我们不得不理解微分方程求解的核心思想：以离散代替连续，用差分逼近微分。 一类有限差分法求解偏微分方程数值解的步骤包括如下几步：
 
@@ -1550,3 +1550,1871 @@ Eq(f(x, y), (F(4*x + 2*y)*exp(x/2) + exp(x + 4*y)/15)*exp(-y))
 \## 2.4 微分方程的应用案例
 
 在本节中，我们将探讨微分方程在现实世界中的应用，特别是在工业和日常生活中的一些实例。通过这些案例，我们可以加深对微分方程建模过程的理解。
+
+### 2.4.1. 人口增长的两种经典模型—— Malthus 模型和 Logistic 模型
+
+人口增长是微分方程建模的一个经典例子。我们可能在高中生物课上已经接触过指数增长（J型曲线）和 Logistic 增长（S型曲线），但可能没有深入了解它们的计算方法和曲线的具体特性。实际上，这些曲线可以通过微分方程来描述。不仅生物种群的增长遵循这些规律，人口增长也是如此。
+
+最简单的模型是 Malthus 模型，它假定人口增长率是一个恒定的常数，因此每年的人口增加量与当年的人口总数成正比：
+$$
+\frac{dx}{dt} = rx, \space\space\space\space x(t_0)=x_0.
+$$
+即使不用Python，我们也可以轻松手动求解这个微分方程：
+$$
+x(t)=x_0e^{r(t-t_0)}
+$$
+其中，增长率*r*是一个恒定的值。这个模型的假设包括：
+
+1. 忽略死亡率对人口增长的影响，只考虑净增长率
+2. 忽略人口迁移对问题的影响，只关注自然增长
+3. 忽略重大突发事件对人口的突变性影响
+4. 忽略人口增长率变化的滞后性
+
+然而，仔细想一想，无论是人还是动物，增长率怎么可能持续不变地指数增长呢？如果一直稳步增长，地球很快就会人满为患。实际上，增长率会受到许多外部因素的影响，比如食物供应、天敌、疾病等突发事件，甚至种群内部的竞争也会降低增长率。那么，这个模型是否完全没有解释价值呢？并非如此，至少在没有天敌、疾病且食物充足的时期，物种的增长确实接近指数增长。一个典型的例子是澳大利亚的野兔。
+
+因此，我们可以对增长率进行一些调整：假设某个地区的人口存在一个最大承载量*x* *m*（也就是我们以前接触到的*K*值），随着人口增长，增长率呈线性下降。这样，原始的 Malthus 模型就被修正为：
+$$
+\frac{dx}{dt}=r(1-\frac{x}{x_m}),\space\space\space\space x(t_0) = x_0
+$$
+该模型被称为 Logistic 模型。事实上，这个方程可以求解出解析解，并且如果绘制它的曲线，会呈现出S形。方程的解析解为：
+$$
+x(t)=\frac{x_m}{1+(\frac{x_m}{x_0} - 1)e^{-r(t-t_0)}}
+$$
+
+> 注意：这两个模型都是人口预测中的经典模型，需要重点掌握。然而，这两个模型都是从宏观角度出发，没有考虑诸如人口结构、人口迁移等更微观的因素。此外，这些模型对数据量的要求并不高，如果数据量太大，可能需要使用时间序列方法进行分析。
+
+接下来，我们可以通过一个例子来进一步了解这些模型。
+
+**例3.7** 假设我们有某地1980年至2010年间的人口变化数据，我们想比较 Malthus 模型和 Logistic 模型对人口变化的拟合效果，并预测2011年的人口数据。假设数据已经存储在文件中，我们可以将其读取并保存到变量中进行分析。
+
+```python
+import pandas as pd
+import numpy as np
+from scipy import optimize
+import matplotlib.pyplot as plt  
+data=pd.read_excel("总人口.xls")
+data1=data[['年份','年末总人口(万人)']].values
+y=data['年末总人口(万人)'].values.astype(float)
+x_0=y[0]
+#Logistic
+def f2(x,r,K):
+    return K/(1+(K/x_0-1)*np.exp(-r*x))
+#Malthus
+def f(x,r):
+    return x_0*np.exp(r*x)
+x=np.arange(0,30,1)
+x_00=np.arange(1990,2020,1)
+plt.figure(figsize=(16,9))
+plt.grid()
+fita,fitb=optimize.curve_fit(f,x,y)
+print(fita)
+plt.plot(x_00,10000*y,'.')
+x1=f(x,fita[0])
+plt.plot(x_00,10000*x1,'r*-')
+fita,fitb=optimize.curve_fit(f2,x,y)
+print(fita)
+x1=f2(x,0.0578,11019)
+plt.plot(x_00,10000*x1,'b^-')
+plt.legend(["Origin","Malthus","Logistic"])
+plt.xlabel("Year")
+plt.ylabel("Population")
+plt.title('Population Prediction')
+plt.show()
+```
+
+最终可以画出模型的拟合图，如图2.4.1所示。
+
+![600](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424223554.png)
+
+图2.4.1 Logistic 模型拟合效果图
+
+从图2.4.1中可以看出，与 Malthus 模型相比， Logistic 模型的拟合效果更接近实际数据。当然，模型的参数或形式可能有更好的选择，但在这里，我们可以认为该模型已经足够接近实际情况，可以用于人口预测。在代码中，我们可以看到， Logistic 模型中测试的最大人口为11000人，人口增长率的初始值为0.001。将这些值代入公式，我们可以用它来预测2011年的人口。
+
+#### 2.4.2. 波浪能受力系统
+
+本节内容改编自2022年全国大学生数学建模竞赛A题。
+
+随着社会的进步和经济的增长，对绿色能源技术的需求日益增加。波浪能，作为一种清洁的可再生能源，具有巨大的潜力和广阔的发展前景。波浪能的有效利用是能源技术研究的重要方向之一。一个典型的波浪能装置由浮标、振荡器、中心轴和能量转换系统（PTO，包括弹簧和阻尼器）组成。在这种装置中，振荡器、中心轴和PTO被封装在浮标内部。当浮标受到周期性波浪的作用时，它会受到波浪激励力、附加质量力、波浪阻尼力和静水复原力等多种力的影响。
+
+![500](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424223648.png)
+
+图2.4.2 波浪能受力系统图
+
+我们需要解决以下问题，以了解系统的动力学行为及其参数： 1. 假设浮标和振荡器仅在垂直方向上进行一维振动。计算在波浪激励力作用下，前40个波浪周期内，每隔0.2秒浮标和振荡器的垂直位移和速度。 2. 若考虑浮标和振荡器不仅有一维振动，还有平面内的摆动。此时，波浪的输入除了提供振动的波浪激励力外，还会提供一个用于摆动的波浪激励力矩。此外，除了直线阻尼器，转轴上还安装有旋转阻尼器和扭转弹簧，这些元件共同输出能量。计算在波浪激励力和波浪激励力矩作用下，前40个波浪周期内，每隔0.2秒浮标与振荡器的垂直位移和速度以及纵摇角位移和角速度。
+
+这是一个动力学系统建模问题。对于浮标和振荡器组成的整体系统，其受到的外力包括浮力、波浪激励力、波浪阻尼力和附加质量力的综合作用，这些力共同决定了浮标和振荡器系统的加速度。而浮力与系统的重力之间的差值实际上就是静水复原力。对于振荡器来说，其受到的力仅包括重力、阻尼力和弹簧力。在初始状态下，由于系统处于静止状态，初始阻尼力为零，弹簧力与振荡器的重力相平衡。在运动过程中，这三种力的合力提供了合加速度。通过求解二阶微分方程组，我们可以模拟整个动力学过程。对于不同的阻尼系数，我们只需进行分类讨论即可。相比于问题一，问题二考虑了转动问题。为了研究方便，我们将运动分解为沿轴方向的垂直振动和平面内的纵摇摆动。纵摇和垂直振动的方程实际上非常相似，本质上是外力矩提供了振荡器和浮标的角速度。
+
+在平衡状态下，如果将浮标和振荡器视为一个整体系统，系统的浮力与两者的重力相平衡。在系统内部，弹簧力和阻尼器的阻尼力作为系统的内力。但由于在平衡状态下浮标和振荡器的相对速度为零，因此阻尼器不提供阻尼力。在这种状态下，弹簧力与振荡器的重力平衡，阻尼器由于速度差为零而不提供阻尼力。根据胡克定律，我们可以得到：
+$$
+mg-kl_0=0.
+$$
+带入*k*=80000 N/m，我们可以得到初始弹簧的初始压缩量*l*0为0.2980 m。 在初始状态下，由于浮力与系统的重力平衡，根据阿基米德原理，浮力等于排出的液体重力，我们可以得到：
+$$
+pgV_0=(m+M)g.
+$$
+解得初始平衡状态下浮标浸没在水面下的体积为7.1210立方米。已知浮标的几何参数，我们可以求解其浸没在水面下的深度。经过计算，锥体部分的体积为0.8378立方米，而柱体部分半径为1米，解得柱体浸没在水面下的深度为2米，加上锥体高度0.8米，因此整体浸没在水面下的高度为2.8米。
+
+如果想让系统进入垂直振动状态，需要给浮标一个初始速度或加速度。波浪为系统提供动力，但由于波浪在提供动力的同时也为周围的海水提供动能，海水反过来作用于浮标，因此产生了附加质量力。所以，附加质量力的作用对象是海水，它与浮标一起以相同的加速度运动。在运动过程中，我们取竖直向上为正方向，浮标和振荡器的位移分别为和\。对于振荡器来说，其受力始终只包括弹簧力、阻尼力和自身的重力。根据 Newton第二定律，我们可以得到振荡器的运动方程：
+$$
+k(l_0+x_1-x_2)+\eta (\frac{dx_1}{dt} - \frac{dx_2}{dt_2})-mg=m\frac{d^2x_2}{dt^2}.
+$$
+在初始状态下，振子的速度和加速度均为零。同时，由于初始状态下振子的重力与弹簧的弹力处于平衡状态，我们可以简化相关的方程为：
+$$
+k(x_1-x_2)+ \eta (\frac{dx_1}{dt}-\frac{dx_2}{dt_2}) = m \frac{d^2x_2}{dt^2}.
+$$
+考虑将振子和浮子作为一个整体系统，阻尼器提供的阻尼力与弹簧的弹力构成系统的内力。根据 Newton第二定律，系统的外力包括波浪提供的激励力、兴波阻尼力、系统受到的浮力以及系统的重力。同时，考虑到虚拟质量对浮子产生的惯性力，我们在计算加速度时需要将虚拟质量考虑在内。因此，系统的合力决定了浮子、振子以及虚拟质量的加速度：
+$$
+\rho gV+f\cos(\omega t)-\psi\frac{dx_1}{dt}-(m + M)g=(M+m_0)\frac{d^2x_1}{dt^2}+m\frac{d^2x_2}{dt^2}.
+$$
+由于初始平衡状态下浮力与系统重力相互抵消，因此在运动状态中，浮力与重力的差值即静水恢复力等于浸没在水下的体积变化所对应的重力：
+$$
+\rho g V-(m+M)g=\rho g \int_{d}^{x_1}\pi z^2(h)dh.
+$$
+那么，方程(7)可以简化为：
+$$
+\rho g\int_{d}^{x_1}\pi z^2(h)dh + f \cos(\omega t)-\psi \frac{dx_1}{dt}=(M+m_0)\frac{d^2x_1}{dt^2}+m\frac{d^2x_2}{dt^2}.
+$$
+而对于下面两种不同的情况，阻尼器的阻尼系数不同。
+
+**情形一**：阻尼器的阻尼系数为常数：
+$$
+\eta = 10000.
+$$
+**情形二**：阻尼器的阻尼系数与速度差的绝对值有关，幂指数为0.5：
+$$
+\eta = 1000[\frac{dx_1}{dt} - \frac{dx_2}{dt}]^{0.5}.
+$$
+给出代码实现如下:
+
+```python
+import numpy as np
+from matplotlib import rcParams
+from math import *
+from sympy.abc import t
+from scipy.integrate import odeint
+import matplotlib.pyplot as plt
+
+def pfun_1(ip,t):
+    """第1小问微分方程模型"""
+    x,y,z,w=ip
+    return np.array([z,
+                    w,
+                    (-k*(x-y)-beta*(z-w))/m2,
+                    (k*(x-y)+beta*(z-w)+f*cos(omega*t)-gama*y-Ita*w)/(m1+m_d)
+                    ])
+def pfun_2(ip,t):
+    """第2小问微分方程模型"""
+    x,y,z,w=ip
+    return np.array([z,
+                    w,
+                    (-k*(x-y)-beta*sqrt(abs(z-w))*(z-w))/m2,
+                    (k*(x-y)+beta*sqrt(abs(z-w))*(z-w)+f*cos(omega*t)-gama*y-Ita*w)/(m1+m_d)
+                    ])
+if __name__=='__main__':
+    dt=0.01
+    m1=4866#浮子质量
+    m2=2433#振子质量
+    m_d=1335.535#垂荡附加质量 (kg)
+    k=80000#弹簧刚度 (N/m)
+    beta=10000#平动阻尼系数
+    f=6250#垂荡激励力振幅 (N)
+    omega=1.4005#入射波浪频率 (s-1)
+    T_max=(2*pi/omega)*40#模拟最大时间
+    gama=1025*9.8*pi#静水恢复力系数
+    Ita=656.3616#垂荡兴波阻尼系数 (N·s/m)
+    t_lst=np.arange(0,T_max,dt)
+    pfun=pfun_2#选择计算第1小问还是第2小问
+    sol=odeint(pfun,[0.0,0.0,0.0,0.0],t_lst)
+    rcParams['font.sans-serif']=['SimHei']
+    plt.figure()
+    plt.plot(t_lst,sol[:,0],label='振子位移')
+    plt.plot(t_lst,sol[:,1],label='浮子位移')
+    plt.legend()
+    plt.figure()
+    plt.plot(t_lst,sol[:,2],label='振子速度')
+    plt.plot(t_lst,sol[:,3],label='浮子速度')
+    plt.legend()
+```
+
+得到结果如图所示：
+
+![600](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424225810.png)
+
+图2.4.3 振子和浮子位移对比图
+
+从图2.4.3中可以看到，在运动初期，振子和浮子开始阶段存在明显的位移差异，且两者的位移均不超过总高度（$3.8\text{ m}$）。在$20$秒后，系统达到稳定状态，此时浮子与振子的相对位移振幅约为$0.12\text{ m}$，呈现出一定的周期性。系统开始运动时，波浪的冲击力为浮子提供了向上的初始加速度，导致浮子开始上升，进而使弹簧和阻尼器进一步压缩，对振子产生更大的推力，使振子开始振动。但当系统趋于稳定时，尽管两者的波形大体相似，但都不是简谐振动，并且存在一定的相位差。这种现象的原因在于，两者的运动受到多种力的影响，其中弹簧和阻尼器的系数以及波浪频率各自提供了不同的频率成分。如果需要进一步分析这些成分，可以进行傅里叶变换。我们将情形一和情形二的位移变化和速度变化数据都放在附件表格中。经模拟，在几个重要时间节点对应的位移和速度如表1所示：
+
+表1 部分时间点对应的位移和速度
+
+系统的摇荡过程包括沿自身轴线的垂荡运动和在一个平面内的纵摇运动。系统各部分在运动过程中受到的力如图2.4.4所示：
+
+![500](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424230016.png)
+
+图2.4.4 振子和浮子位移对比图
+
+在纵摇运动的平衡位置，我们将竖直方向作为参考。对于振子而言，其运动可以分解为沿杆的垂荡分量和平面内的纵摇分量。在垂荡方向上，各自沿着自身轴线的方向为正方向，满足与问题一中类似的关系式。但需要注意的是，重力在杆的方向上存在一个分量，这一分量与振子的摆动角度有关：
+$$
+k(l_{0} + x_{1} - x_{2}) + \eta \left[ \frac{\mathrm{d}x_{1}}{\mathrm{d}t} - \frac{\mathrm{d}x_{2}}{\mathrm{d}t} \right]+ mg (1 - \cos \theta_{2}) = m \frac{\mathrm{d}^{2}x_{2}}{\mathrm{d}t^{2}}, \tag{2.4.14}
+$$
+对于纵摇方向上的运动，重力在垂直于杆的方向上提供了力矩，加上弹簧的扭矩和旋转阻尼力矩，我们可以得到一个基于角动量定理的表达式： 
+$$
+K(\theta_2 - \theta_{1}) + \lambda \left[ \frac{\mathrm{d}\theta_{2}}{\mathrm{d}t} - \frac{\mathrm{d}\theta_{1}}{\mathrm{d}t} \right] - mgL_{2} \sin \theta_{2} = J_{2} \frac{\mathrm{d}^{2}\theta_{2}}{\mathrm{\mathrm{d}t^{2}}}. \tag{2.4.15}
+$$
+对于由浮子和振子构成的系统，垂荡运动的表达式类似于问题一： 
+$$
+\begin{align} &\rho gV \cos \theta_{1} + f \cos (\omega t) - \psi \frac{\mathrm{d}x_{1}}{\mathrm{d}t} - (mg \cos \theta_{2} + MgL_{1}\cos \theta_{1}) \\&= (M + m_{0}) \frac{\mathrm{d}^{2}x}{\mathrm{d}t^{2}} + m \frac{\mathrm{d}^{2}x_{2}}{\mathrm{d}t^{2}}. \end{align} \tag{2.4.16}
+$$
+在海水中进行纵摇运动时，静水恢复力矩可以使浮体转正，其大小与浮体相对于静水面的转角成正比，比例系数称为静水恢复力矩系数。因此，我们假设静水恢复力矩、总体重力力矩和浮力力矩的矢量和为零：
+$$
+\rho g V x_{1} \sin \theta_{1} - (mgL_{2} \sin \theta_{2} + MgL_{1} \sin \theta_{1}) = \varepsilon \theta_{1}, \tag{2.4.17}
+$$
+其中$\varepsilon$为静水恢复力矩系数。在纵摇方向上，浮力和重力在垂直于竖直方向上提供力矩，加上外部的波浪激励力矩和兴波阻尼力矩：
+$$
+\varepsilon \theta_{1} + L \cos(\omega t) - \phi \frac{\mathrm{d}\theta_{1}}{\mathrm{d}t} = (J_{1} + J_{0}) \frac{\mathrm{d}^{2}\theta_{1}}{\mathrm{d}t^{2}} + J_{2} \frac{\mathrm{d}^{2}\theta_{2}}{\mathrm{d}t}. \tag{2.4.18}
+$$
+实现这个模型的代码如下：
+
+```python
+import numpy as np
+from matplotlib import rcParams
+from math import *
+from sympy.abc import t
+from scipy.integrate import odeint
+import matplotlib.pyplot as plt
+
+def pfun(ip,t):
+    """第3问微分方程模型"""
+    x,y,z,w,th1,th2,ph1,ph2=ip
+    A=np.array([[1,0,0,0,0,0,0,0],
+                [0,1,0,0,0,0,0,0],
+                [0,0,m_v,m_v*cos(th2),0,0,0,0],
+                [0,0,0,m_f+m_d,0,0,0,0],
+                [0,0,0,0,1,0,0,0],
+                [0,0,0,0,0,1,0,0],
+                [0,0,0,0,0,0,J_f+J_d,0],
+                [0,0,0,-m_v*(l0+x+0.5*h_v)*sin(th2),0,0,0,J_v+m_v*(l0+x+0.5*h_v)**2]])
+    b=np.array([[z],
+                [w],
+                [m_v*g*(1-cos(th2))+m_v*(l0+x+0.5*h_v)*ph2**2-k1*x-beta_1*z],
+                [m_v*g*(1-cos(th2))+(k1*x+beta_1*z)*cos(th2)+f*cos(omega*t)-Ita_1*w-gama_1*y],
+                [ph1],
+                [ph2],
+                [k2*(th2-th1)+beta_2*(ph2-ph1)-Ita_2*ph1-(((2+15*(2-y)**2)/(8+30*(2-y)))*((m_v+m_f)*g-1025*g*pi*y)+gama_2)*th1+L*cos(omega*t)],
+                [m_v*g*(l0+x+0.5*h_v)*sin(th2)-2*z*ph2*m_v*(l0+x+0.5*h_v)-k2*(th2-th1)-beta_2*(ph2-ph1)]])
+    Op=np.dot(np.linalg.inv(A),b)
+    return Op.reshape((-1,))
+if __name__=='__main__':
+    dt=0.01
+    g=9.8
+    l0=0.2019575#弹簧初始长度
+    m_f=4866#浮子质量
+    m_v=2433#振子质量
+    m_d=1028.876#垂荡附加质量 (kg)
+    J_d=7001.914#纵摇附加转动惯量 (kg·m^2)
+    J_v=202.75#振子绕质心转动惯量
+    J_f=16137.73119#浮子转动惯量
+    k1=80000#弹簧刚度 (N/m)
+    k2=250000#扭转弹簧刚度 (N·m)
+    beta_1=10000#直线阻尼器阻尼系数
+    beta_2=1000#旋转阻尼器阻尼系数
+    f=3640#垂荡激励力振幅 (N)
+    L=1690#纵摇激励力矩振幅 (N·m)
+    omega=1.7152#入射波浪频率 (s-1)
+    T_max=(2*pi/omega)*40#模拟最大时间
+    gama_1=1025*g*pi#静水恢复力系数
+    gama_2=8890.7#静水恢复力矩系数 (N·m)
+    Ita_1=683.4558#垂荡兴波阻尼系数 (N·s/m)
+    Ita_2=654.3383#纵摇兴波阻尼系数 (N·m·s)
+    h_v=0.5#振子高度
+    t_lst=np.arange(0,T_max,dt)
+    sol=odeint(pfun,[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],t_lst)
+    
+    """将振子相对铰链中心的径向位移、速度转换成垂荡位移、垂荡速度"""
+    xx=np.zeros(sol.shape[0])
+    vx=np.zeros(sol.shape[0])
+    for idx in range(xx.shape[0]):
+        xx[idx]=(l0+sol[idx,0])*cos(sol[idx,5])-l0+sol[idx,1]
+        vx[idx]=sol[idx,2]*cos(sol[idx,5])+sol[idx,3]
+    rcParams['font.sans-serif']=['SimHei']
+    plt.figure()
+    plt.title('')
+    plt.plot(t_lst,xx,label='振子垂荡位移')
+    plt.plot(t_lst,sol[:,1],label='浮子垂荡位移')
+    plt.legend()
+    plt.figure()
+    plt.plot(t_lst,vx,label='振子垂荡速度')
+    plt.plot(t_lst,sol[:,3],label='浮子垂荡速度')
+    plt.legend()
+    plt.figure()
+    plt.plot(t_lst,sol[:,4],label='浮子纵摇角度')
+    plt.plot(t_lst,sol[:,5],label='振子纵摇角度')
+    plt.legend()
+    plt.figure()
+    plt.plot(t_lst,sol[:,6],label='浮子纵摇角速度')
+    plt.plot(t_lst,sol[:,7],label='振子纵摇角速度')
+    plt.legend()
+```
+
+得到结果图像如图所示：
+
+![700](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424231213.png)
+
+图2.4.5 振子和浮子位移对比图
+
+通过对比图2.4.5中的上面两张子图，我们发现在摇摆过程中，两者的位移差最大不超过$0.15$米，并在$40$秒后稳定在$0.05$米左右。在一个完整的摆动周期内，仍然存在轻微的波动。初始阶段，相对位移的波动由于受到冲击的影响较大，振幅较大，但随着时间的推移，经过两次冲击后，逐渐趋于稳定。其波形与问题一中的波形有所不同，主要是因为重力在不同摆动方向上的分量发生了周期性的变化。
+
+值得注意的是，类似于问题一，图13展示了振子和浮子质心高度随时间的变化曲线。初始状态以平衡态浮子的锥顶高度作为0高度基准，而位移表示的是相对变化量。因此，在实际求解过程中，需要减去初始高度。
+
+如图2.4.5右上子图所示，振子和浮子的速度变化情况可以观察到，浮子的运动速度变化范围大于振子，其上下速度波动范围介于−1.5至1.5米/秒。尽管速度差异不显著，但可以看出振子的速度有时会超过1.5米/秒，而浮子的速度则不会超过这一值。因此，尽管两者的速度波形相似，但仍存在一定的波动和相位差。
+
+在分析纵摇运动时，我们也考察了振子和浮子的转动情况。以竖直方向作为平衡位置，若开始时两者均以逆时针方向运动，并以此方向为正方向定义，则物体的纵摇运动和垂荡运动构成了一个整体，不能单独对纵摇或垂荡进行分析，因为重力的分量不同，且这一分量的变化是周期性的。
+
+从图2.4.5中可以看出，在初始阶段，浮子的纵摇角速度会突然增加，而振子的增加速度相对缓慢。这是因为海浪给予的初始力矩较大，使浮子获得了较大的角加速度。在模拟过程中，由于*t*=0.2秒这一时间间隔可能略长，导致模拟的速度在初始阶段增长非常快。浮子通过旋转压缩弹簧和阻尼器，提供的弹力迫使振子和浮子保持相同的旋转方向运动。
+
+通过求解，我们得到了几个重要时间节点的垂荡运动和纵摇运动情况
+
+#### 2.4.3. 新冠病毒的传播模型—— SI、SIS、SIR、SEIR模型
+
+自2020年起，新冠疫情的爆发彻底打乱了我们的日常生活。在这场全球性的疫情中，不仅医院的医生和科研人员在前线奋斗，许多互联网公司也开发了健康码和行程码来帮助防疫。此外，高校的数学研究者和学生们也发挥了重要作用，他们通过数学建模来预测和分析新冠病毒的传播趋势，比如英国的帝国理工学院、中国的西安交通大学和武汉大学等。
+
+为了有效控制疫情，模型需要能够预测病毒在不同阶段的传播情况。新冠病毒传播迅速，感染周期短，变异速度快，这使得疫苗研发面临巨大挑战。因此，我们需要考虑易感人群、无症状感染者和已感染者之间的动态平衡。
+
+在编写代码时，只需明确传染速率和恢复速率以及人员流动情况即可。可以将人群分为绿码、黄码和红码三种状态，这种分类具有以下特点：
+
+1. 传播速度快，影响范围广，但可以连续变化。
+2. 绿码、黄码、红码人群的比例总和为1。
+3. 绿码减少的数量等于黄码增加的数量，黄码减少的数量等于红码增加的数量，红码康复的数量等于绿码增加的数量，即总体保持平衡
+
+SI模型是一种简单的传播模型，将人群分为易感者（S类）和感染者（I类）两类。通过SI模型，我们可以预测疫情高峰的到来。通过提高卫生标准和加强防控措施，可以延缓疫情高峰的出现。
+
+![500](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424231539.png)
+
+图2.4.6 SI模型的模型图
+
+如图所示，SI模型将易感者与感染者的有效接触视为感染事件，无潜伏期、无治愈情况、无免疫力。模型以一天为时间单位，假设总人数N固定，不考虑人口的出生、死亡、迁入和迁出。在任意时刻$t$，易感者和感染者占总人口的比例分别为$S(t)$、$I(t)$，其数量分别为$S(t)$、$I(t)$。初始时刻，各类人群的比例为$s_0$、$i_0$。每个感染者每天有效接触的易感者平均数为$\lambda$。
+
+数学模型为
+$$
+N\frac{di(t)}{dt}=\lambda Ns(t)i(t),\\
+s(t)+i(t)=1.
+$$
+你可能已经注意到，这实际上是一个 Logistic 模型。如果尝试编程解决这个模型，最终结果会是一条S型曲线，即所有人最终都会被感染。这个结论显然不合理，说明模型中还有一些未考虑到的因素。
+
+SI模型的仿真代码如下。
+
+```python
+# 设置模型参数
+lamda = 1.0  # 日接触率, 患病者每天有效接触的易感者的平均人数
+y0 = 1e-6  # 患病者比例的初值
+tEnd = 50  # 预测日期长度
+t = np.arange(0.0,tEnd,1)  # (start,stop,step)
+
+def dy_dt(y, t):  # 定义导数函数 f(y,t)
+    dy_dt = lamda*y*(1-y)  # di/dt = lamda*i*(1-i)
+    return dy_dt
+yAnaly = 1/(1+(1/y0-1)*np.exp(-lamda*t))  # 微分方程的解析解
+yInteg = odeint(dy_dt, y0, t)  # 求解微分方程初值问题
+yDeriv = lamda * yInteg *(1-yInteg)
+# 绘图
+plt.plot(t, yAnaly, '-ob', label='analytic')
+plt.plot(t, yInteg, ':.r', label='numerical')
+plt.plot(t, yDeriv, '-g', label='dy_dt')
+plt.title("Comparison between analytic and numerical solutions")
+plt.legend(loc='right')
+plt.axis([0, 50, -0.1, 1.1])
+plt.show()
+```
+
+SI模型的仿真结果如图2.4.7所示。
+
+![500](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424231831.png)
+
+图2.4.7 SI模型的仿真结果
+
+在SI模型基础上考虑病愈免疫的康复者（R类）就得到SIR模型，对应疾病被治愈或死亡的状态，感染人群以单位时间传染概率由感染状态转移至移除状态，如图2.4.8所示。
+
+![600](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424231855.png)
+
+图2.4.8 SIR模型的模型图
+
+除了日感染率$\lambda$，还引入一个概念叫日治愈率$\mu$。模型修正为
+$$
+\begin{align} N \frac{\mathrm{d}s}{\mathrm{d}t} &= -N \lambda si, \\[0.5em] N \frac{\mathrm{d}i}{\mathrm{t}} &= N\lambda si - N \mu i, \\[0.5em] s(t) + i(t) + r(t) &= 1. \end{align} \tag{2.4.20}
+$$
+
+
+SIR模型的仿真代码如下。
+
+```python
+def dySIR(y, t, lamda, mu):  # SIR 模型，导数函数
+    i, s = y
+    di_dt = lamda*s*i - mu*i  # di/dt = lamda*s*i-mu*i
+    ds_dt = -lamda*s*i  # ds/dt = -lamda*s*i
+    return [di_dt,ds_dt]
+
+# 设置模型参数
+lamda = 0.2  # 日接触率, 患病者每天有效接触的易感者的平均人数
+sigma = 2.5  # 传染期接触数
+mu = lamda/sigma  # 日治愈率, 每天被治愈的患病者人数占患病者总数的比例
+fsig = 1-1/sigma
+tEnd = 200  # 预测日期长度
+t = np.arange(0.0,tEnd,1)  # (start,stop,step)
+i0 = 1e-6  # 患病者比例的初值
+s0 = 1-i0  # 易感者比例的初值
+Y0 = (i0, s0)  # 微分方程组的初值
+print("lamda={}\tmu={}\tsigma={}\t(1-1/sig)={}".format(lamda,mu,sigma,fsig))
+ySIR = odeint(dySIR, Y0, t, args=(lamda,mu))  # SIR 模型
+# 绘图
+#plt.title("Comparison among SI, SIS and SIR models")
+plt.xlabel('t')
+plt.axis([0, tEnd, -0.1, 1.1])
+plt.axhline(y=0,ls="--",c='c')  # 添加水平直线
+plt.plot(t, ySIR[:,0], '-r', label='i(t)-SIR')
+plt.plot(t, ySIR[:,1], '-b', label='s(t)-SIR')
+plt.plot(t, 1-ySIR[:,0]-ySIR[:,1], '-m', label='r(t)-SIR')
+plt.legend(loc='best')  # youcans
+plt.show()
+```
+
+SIR模型的仿真结果如图2.4.9所示。
+
+![500](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424232737.png)
+
+图2.4.9 SIR模型的仿真结果
+
+当我们在使用SIR模型探索疾病传播时，我们近乎触及了模拟真实世界传染病动态的边缘。然而，对于具有潜伏期的疾病，如COVID-19，我们需要引入一个额外的群体——那些高风险接触者，或者说是疑似病例。让我们假设易感个体变成这类高风险接触者的转变速率是$\lambda$，而疑似病例确诊为感染者的转化速率是$\delta$，最后，感染者康复的速率是$\mu$。通过这样的设置，我们得到了一个更加贴近现实的模型，即SEIR模型。
+
+![img](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424232842.png)
+
+图2.4.10 SEIR模型的模型图
+
+模型形式形如： 
+$$
+\begin{align} N \frac{\mathrm{d}s}{\mathrm{d}t} &= -N \lambda si, \\[0.5em] N \frac{\mathrm{d}e}{\mathrm{d}t} &= N \lambda si - N \delta e, \\[0.5em] N \frac{\mathrm{d}i}{\mathrm{d}t} &= N \delta e - N \mu i, \\[0.5em] N \frac{\mathrm{d}r}{\mathrm{d}t} &= -N \mu si, \\[0.5em] s(t) + e(t) + i(t) + r(t) &= 1. \end{align} \tag{2.4.21}
+$$
+
+
+> 注意：为了使模型更加全面，我们可以考虑加入更多的转变路径。比如，康复者可能由于病毒的变异重新变成易感个体；或者易感个体通过接种疫苗而直接获得免疫，成为康复者。这些补充路径让模型更加精细，更贴近于COVID-19的实际传播模式，为我们预测疾病的转折点提供了工具。
+
+SEIR模型的仿真代码如下。
+
+```python
+def dySEIR(y, t, lamda, delta, mu):  # SEIR 模型，导数函数
+    s, e, i = y  # youcans
+    ds_dt = -lamda*s*i  # ds/dt = -lamda*s*i
+    de_dt = lamda*s*i - delta*e  # de/dt = lamda*s*i - delta*e
+    di_dt = delta*e - mu*i  # di/dt = delta*e - mu*i
+    return np.array([ds_dt,de_dt,di_dt])
+
+# 设置模型参数
+lamda = 0.3  # 日接触率, 患病者每天有效接触的易感者的平均人数
+delta = 0.03  # 日发病率，每天发病成为患病者的潜伏者占潜伏者总数的比例
+mu = 0.06  # 日治愈率, 每天治愈的患病者人数占患病者总数的比例
+sigma = lamda / mu  # 传染期接触数
+fsig = 1-1/sigma
+tEnd = 300  # 预测日期长度
+t = np.arange(0.0,tEnd,1)  # (start,stop,step)
+i0 = 1e-3  # 患病者比例的初值
+e0 = 1e-3  # 潜伏者比例的初值
+s0 = 1-i0  # 易感者比例的初值
+Y0 = (s0, e0, i0)  # 微分方程组的初值
+# odeint 数值解，求解微分方程初值问题
+ySEIR = odeint(dySEIR, Y0, t, args=(lamda,delta,mu))  # SEIR 模型
+# 输出绘图
+print("lamda={}\tmu={}\tsigma={}\t(1-1/sig)={}".format(lamda,mu,sigma,fsig))
+plt.title("Comparison among SI, SIS, SIR and SEIR models")
+plt.xlabel('t')
+plt.axis([0, tEnd, -0.1, 1.1])
+plt.plot(t, ySEIR[:,0], '--', color='r', label='s(t)-SEIR')
+plt.plot(t, ySEIR[:,1], '-.', color='g', label='e(t)-SEIR')
+plt.plot(t, ySEIR[:,2], '-', color='b', label='i(t)-SEIR')
+plt.plot(t, 1-ySEIR[:,0]-ySEIR[:,1]-ySEIR[:,2], ':', color='k', label='r(t)-SEIR')
+plt.legend(loc='right')  # youcans
+plt.show()
+```
+
+SEIR模型的仿真结果如图2.4.11所示。
+
+![img](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424233530.png)
+
+图2.4.11 SEIR模型的仿真结果
+
+从图2.4.11中可以看到，此时模型已经非常接近实际的新冠传播情况，可以用此预判新冠的拐点。 注意：值得注意的是，随着疫情的发展，研究人员发现，COVID-19在最初爆发时的参数并非固定不变。相反，它们应当根据疾病传播的不同阶段进行调整，以更准确地反映疾病的传播情况。这种阶段性的模拟方法为我们深入理解疾病传播提供了新的视角。
+
+#### 2.4.4. 被捕食者-捕食者模型 —— Volterra 模型
+
+考虑一个关于森林中狼和羊共存的扩展模型。在这个模型中，狼是捕食者，羊是食草动物。我们之前已经讨论了 Logistic 生长模型，现在我们将进一步考虑不同物种之间的相互影响。 假设羊有充足的食物资源，如果没有狼的捕食，羊的数量将按照Malthus模型以固定的增长率r1呈指数增长。然而，由于狼的捕食，羊的数量会减少，我们假设这种减少的速率与狼和羊的数量成正比：
+$$
+\frac{dx_1}{dt}=x_1(r_1-\lambda_1x_2),\\
+\frac{dx_2}{dt} = x_2(r_2-\lambda_2x_1).
+$$
+可以对这一模型进行仿真模拟，代码如下。
+
+```python
+alpha = 1. 
+beta = 1.
+delta = 1.
+gamma = 1.
+x_0 = 4.
+y0 = 2.
+
+def derivative(X, t, alpha, beta, delta, gamma):
+    x, y = X
+    dotx = x * (alpha - beta * y)
+    doty = y * (-delta + gamma * x)
+    return np.array([dotx, doty])
+Nt = 1000
+tmax = 30.
+t = np.linspace(0.,tmax, Nt)
+x_0 = [x_0, y0]
+res = odeint(derivative, x_0, t, args = (alpha, beta, delta, gamma))
+x, y = res.T
+plt.figure(figsize=(16,9))
+plt.grid()
+plt.title("odeint method")
+plt.plot(t, x, 'xb-', label = 'Deer')
+plt.plot(t, y, '+r-', label = "Wolves")
+plt.xlabel('Time t, [days]')
+plt.ylabel('Population')
+plt.legend()
+plt.show()
+plt.figure()
+IC = np.linspace(1.0, 6.0, 9) # initial conditions for deer population (prey)
+# np.linspace和arange不同，从1.0开始，到6.0结束，均分为9段
+for deer in IC:
+    x_0 = [deer, 1.0]
+    Xs = odeint(derivative, x_0, t, args = (alpha, beta, delta, gamma))
+    plt.plot(Xs[:,0], Xs[:,1], "-", label = "$x_0 =$"+str(x_0[0]))
+plt.xlabel("Deer")
+plt.ylabel("Wolves")
+plt.legend()
+plt.title("Deer vs Wolves")
+plt.show()
+```
+
+得到狼羊的物种数量变化曲线与相轨线，如图2.4.12所示。
+
+![700](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424233809.png)
+
+图2.4.12 物种数量变化曲线和相轨线在这个模型中，我们关注的是系统的平衡点，即两个物种的数量不再变化的点。显然，当狼和羊的数量都为零时，系统处于一个平衡点，但这个点没有实际意义。我们更关心的是另一个平衡点，即。如图2.4.12所示，相轨线是以狼和羊的数量为坐标绘制的闭合曲线，它有助于我们分析系统的稳定性。感兴趣的读者可以尝试改变模型参数，观察相轨线的变化。
+
+### 2.5. 差分方程的典型案例
+
+接下来，我们讨论差分方程，它与微分方程的关系就像离散与连续的关系。实际上，数列的差分问题本身就可以视为差分方程的一个应用案例。无论是差分方程还是微分方程，它们的某些思想、理论和背景都是相通的。
+
+#### 2.5.1. 差分方程与微分方程建模的异同
+
+差分方程可以看作是微分方程的离散形式，其解法通常采用递推方法。值得注意的是，常微分方程的通解方法与相应的差分方程的解法是相似的。微分方程以其简洁的思想和纯粹的条件，通过微元分析，使得建模变得容易，能够处理多变量系统。然而，微分方程的模型相对原始，求解并不总是容易。相比之下，差分方程通过对连续系统的离散化处理，能够考虑更多因素，尽管有时求解同样困难，但在应用上更为广泛。
+
+#### 2.5.2. 人口模型的新讨论 —— Leslie模型
+
+以前我们讨论的 Logistic 模型和 Malthus 模型主要关注增长率，没有考虑人口结构、性别比例和人口迁移等因素。Leslie模型则对这些因素进行了考虑和改进。
+
+在正常的社会或自然条件下，生育率和死亡率与群体的年龄结构密切相关。因此，我们需要根据年龄对整个群体进行层次划分，建立与年龄相关的人口模型。Leslie模型是一种基于不同年龄段人群生育率差异的模型，它通过构建变化矩阵进行分析，能够充分考虑种群内的性别比和年龄段差异。 我们将女性人口按年龄等间隔划分为n个年龄组，并将时间离散化，间隔与年龄组相同。假设各个年龄组的生育率b和存活率s不随时间变化，我们可以建立一个模型来描述这种情况。
+$$
+\begin{cases} f_i(t+1) =  \sum_{i=1}^{n}{b_if_i(t)},(28)  \\
+	f_{i+1}(t + 1) = s_if_i(t).(29)
+\end{cases}
+$$
+其中i=*i*=1,2,...,*n*−1。 在式(2.5.1)中，假设中已扣除了在t时段以后出生而活不到t+1时段的婴儿，记Leslie矩阵：
+$$
+L=\left[
+	\matrix{
+	b_1 \space b_2 \space ... \space b_n\\
+	s_1\space 0 \space ... \space 0
+ \\	0  \space s_2 \space ... \space 0 \\
+ ........\\
+ 0\space 0 \space ... \space s_n
+	}
+	\right
+]
+$$
+记**f**(*t*)=[*f*1(*t*),*f*2(*t*),...,*f* *n*(*t*)]⊤，则式(3.31)可以写作：
+$$
+f(t+1)=Lf(t).
+$$
+通过计算 Leslie 矩阵**L**并使用初始的人口分布向量**f**(0)，我们能够预测任何给定时刻t*t*的女性人口分布**f**(*t*)。然后，将这些预测值除以女性在总人口中的比例，就可以得到全国总人口*N*(*t*)在时刻t*t*的估计值。
+
+利用2021年的人口统计数据，我们可以对中国未来一段时间内的人口变化进行预测。在此，要感谢华中科技大学电信学院2020级的邓立桐同学，他协助我们从国家统计年鉴中获取了所需的数据，并进行了相关仿真分析。仿真结果显示了全国人口总数以及不同年龄段人口比例的预期变化趋势，如图2.5.1所示。
+
+![img](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424234329.png)
+
+图2.5.1 经模拟仿真的人口变化趋势
+
+\> 注意：模拟仿真用数据可以从国家统计局和人口年鉴中查找。
+
+图2.5.1展示了经过模拟仿真得到的人口变化趋势。需要注意的是，这些仿真数据可以从国家统计局和人口年鉴中获得。从图中我们可以看出，在实施三胎政策之后，未来十五年内，15至64岁的人口数量及其在总人口中的比重仍将继续减少，老龄化问题依旧难以得到有效缓解。预计到2035年，65岁及以上的人口将占总人口的23.7%。这一趋势反映了当前人口老龄化已经相当严重，加之生活压力较大，放宽生育政策对于不愿生育的人群和只有一个孩子的家庭影响有限，主要对有两个孩子的家庭产生一定影响。
+
+仿真代码如下:
+
+```python
+import pandas as pd
+import numpy as np
+a=pd.read_excel("data3.xlsx")
+p=0.48764
+N00=a['总人口(万人)']
+N00=np.array(N00)
+A=np.eye(90)
+b=a['生存率'][0:90]
+b1=b/100
+for i in range(90):
+    A[i,:]*=b1[i]
+c=a['调节后生育率'][0:90]
+c1=c/1000
+M=sum(c1)
+d=np.zeros((91,1))
+B=np.vstack([c1,A])
+L=np.hstack([B,d])
+G=[]
+K=[]
+S1=[]
+S2=[]
+S3=[]
+for i in range(1,13):
+    L0=np.power(L,i)
+    X=N00@L0
+    G.append(X)
+    Z=X/p
+    K.append(sum(Z))
+    S1.append(sum(Z[0:15]))
+    S2.append(sum(Z[15:65]))
+    S3.append(sum(Z[65:-1]))
+K=np.array(K)
+S1=np.array(S1)
+S2=np.array(S2)
+S3=np.array(S3)
+x=range(2023,2035)
+y1=S1/K
+y2=S2/K
+y3=S3/K
+plt.figure(2)
+plt.plot(x,y1,'-or')
+plt.plot(x,y2,'-ob')
+plt.plot(x,y3,'-og')
+plt.title('我国全国各年龄段人口变化趋势')
+plt.xlabel('时间(单位：年)')
+plt.ylabel('人口数量（单位：万人）')
+plt.legend(['年龄在0-14岁总人数','年龄在15-64岁总人数','年龄在65及65岁以上总人数'])
+plt.show()
+```
+
+### 2.6. 元胞自动机与仿真模拟
+
+在之前的讨论中，我们主要关注了如何针对连续问题建立函数和微分方程模型进行求解。对于一些离散问题，我们尝试使用了差分方程模型。然而，差分方程模型往往难以有效地模拟大多数离散模型。因此，我们将介绍一种强大的工具——元胞自动机。
+
+#### 2.6.1. 元胞自动机的理论
+
+元胞自动机是一种具有时间、空间和状态离散性的网格动力学模型，其中空间相互作用和时间因果关系局部化。它能够模拟复杂系统的时空演化过程。元胞自动机的一个显著特点是它不依赖于固定的数学公式。因此，在数学建模中，有一个俗语：“遇到难题时，就用元胞自动机”。
+
+自从元胞自动机被提出以来，对其分类的研究成为了一个重要的研究课题和核心理论。根据不同的角度和标准，元胞自动机可以有多种分类方式。1990年，Howard A. Gutowitz 提出了一种基于元胞自动机行为的马尔可夫概率测量的层次化、参数化分类体系。S. Wolfram 对一维元胞自动机的演化行为进行了详细分析，并在大量计算机实验的基础上，将所有元胞自动机的动力学行为归纳为四大类：
+
+- 平稳（Stable）：从任何初始状态开始，经过一定时间运行后，元胞空间趋于一个空间平稳的构形。这里的空间平稳指的是每个元胞都处于固定状态，不随时间变化，例如规则254；
+- 周期（Periodic）：经过一定时间运行后，元胞空间趋于一系列简单的固定结构或周期结构。这些结构可以被视为一种滤波器，因此可用于图像处理研究，例如规则90；
+- 混沌（Chaos）：从任何初始状态开始，经过一定时间运行后，元胞自动机表现出混沌的非周期行为。所生成的结构的统计特征保持不变，通常表现为分形维特征，例如规则110；
+- 复杂（Complex）：出现复杂的局部结构，或者说是局部的混沌，其中有些会不断地传播，例如规则30。
+
+理论上，元胞空间应该是无限的，但实际上这是不可能的。因此，我们需要像处理偏微分方程一样为其添加一些“邻居”，即所谓的边界条件。 对于固定型边界，我们在扩展边界时将扩展值设置为相同的常数值，如图所示：
+
+![300](https://datawhalechina.github.io/intro-mathmodel/CH2/Pasted%20image%2020240424234850.png)
+
+图2.6.1 固定型边界图
+
+周期型边界则是按照对应行或列的另一侧端点值进行填充，使之呈现出周期变化：
+
+![img](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424234901.png)
+
+图2.6.2 周期型边界图
+
+绝热型边界是指按照扩充时最近邻的格点值进行扩展，如图所示：
+
+![img](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424234942.png)
+
+图2.6.3 绝热型边界图
+
+映射型边界是针对对应的行或列按照特定规则映射生成填充值的边界方法。例如，定义映射规则为：这一行或这一列中待扩充节点相邻的下一个节点值，则边界如图所示：
+
+![img](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424234953.png)
+
+图2.6.4 映射型边界图
+
+\### 2.6.2 元胞自动机的应用——生命游戏
+
+生命游戏（Game of Life）是由英国数学家约翰·康威（John Horton Conway）于1970年发明的一种元胞自动机。它是一个零玩家游戏，意味着游戏的演化是由初始状态决定的，不需要玩家的进一步输入。生命游戏的规则非常简单，但它能够产生极其复杂的行为，被誉为“元胞自动机的代表作”。生命游戏的规则如下：
+
+- （Exposure）当前细胞为存活状态时，当周围的存活细胞低于2个时（不包含2个），该细胞变成死亡状态
+- （Survive）当前细胞为存活状态时，当周围有2个或3个存活细胞时，该细胞保持原样
+- （Overcrowding）当前细胞为存活状态时，当周围有超过3个存活细胞时，该细胞变成死亡状态
+- （Reproduction）当前细胞为死亡状态时，当周围有3个存活细胞时，该细胞变成存活状态
+
+尽管规则简单，生命游戏却能够展示出类似于生物系统中的复杂行为，如细胞的出生、死亡和繁衍。它不仅在数学和计算机科学中被广泛研究，还成为了人工生命和复杂系统理论的一个重要模型。
+
+生命游戏的一个有趣特点是，它能够产生各种各样的图案，包括静态图案、振荡图案和移动图案（如滑翔机）。这些图案的演化可以被看作是计算过程的一种形式，因此生命游戏也被认为是一种基本的计算模型。
+
+下面的Python代码示例展示了如何使用NumPy和Matplotlib库来模拟生命游戏。该示例包括创建初始随机网格、添加滑翔机图案以及实现环形边界条件的功能。通过调整参数和初始条件，可以探索生命游戏中各种有趣的行为和图案。
+
+```python
+## eg.1.
+import sys,argparse #argparse是python的一个命令行解析包
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from matplotlib.colors import ListedColormap
+yeah =('purple','yellow')
+cmap = ListedColormap(yeah)
+ 
+ON = 255
+OFF = 0
+vals = [ON, OFF]
+ 
+def randomGrid(N):
+    """returns a grid of NxN random values"""
+    return np.random.choice(vals, N*N, p=[0.2, 0.8]).reshape(N, N) #采用随机的初始状态
+ 
+def addGlider(i, j, grid):
+    """adds a glider with top-left cell at (i, j)"""
+    glider = np.array([[0, 0, 255],        
+                      [255, 0, 255],
+                      [0, 255, 255]])   
+    # 3×3 的 numpy 数组定义了滑翔机图案（看上去是一种在网格中平稳穿越的图案）。
+    grid[i:i+3, j:j+3] = glider       
+    #可以看到如何用 numpy 的切片操作，将这种图案数组复制到模拟的二维网格中
+    # 它的左上角放在 i和 j指定的坐标，即用这个方法在网格的特定行和列增加一个图案，
+ 
+#实现环形边界条件
+def update(frameNum, img, grid, N):
+    newGrid = grid.copy()
+    for i in range(N):
+        for j in range(N):
+            total = int((grid[i, (j-1)%N] + grid[i, (j+1)%N] +
+                    grid[(i-1)%N, j] + grid[(i+1)%N, j] +
+                    grid[(i-1)%N, (j-1)%N] + grid[(i-1)%N, (j+1)%N] +
+                    grid[(i+1)%N, (j-1)%N] + grid[(i+1)%N, (j+1)%N])/255)     
+           # 因为需要检测网格的 8个边缘。更简洁的方式是用取模（%）运算符
+           # 可以用这个运算符让值在边缘折返
+        
+           # Conway实现规则 :生命游戏的规则基于相邻细胞的 ON 或 OFF 数目
+           # 为了简化这些规则的应用，可以计算出处于 ON 状态的相邻细胞总数。
+            if grid[i, j] == ON:
+                if (total < 2) or (total > 3):
+                    newGrid[i, j] = OFF
+            else:
+                if total == 3:
+                    newGrid[i, j] = ON
+    
+    # update data
+    img.set_data(newGrid)
+    grid[:] = newGrid[:]
+    return img,
+ 
+#向程序发送命令行参数，mian()
+def main():
+    # command line arguments are in sys.argv[1], sys.argv[2], ...
+    # sys.argv[0] is the script name and can be ignored
+    # parse arguments
+    parser = argparse.ArgumentParser(description="Runs Conway's Game of Life simulation.")
+    # add arguments
+    parser.add_argument('--grid-size', dest='N', required=False)  #定义了可选参数，指定模拟网格大小N
+    parser.add_argument('--mov-file', dest='movfile', required=False)  #指定保存.mov 文件的名称
+    parser.add_argument('--interval', dest='interval', required=False)  #设置动画更新间隔的毫秒数
+    parser.add_argument('--glider', action='store_true', required=False) #用滑翔机图案开始模拟
+    parser.add_argument('--gosper', action='store_true', required=False)
+    args = parser.parse_args()
+ 
+    #初始化模拟   
+    # set grid size
+    N = 100
+    if args.N and int(args.N) > 8:
+        N = int(args.N)
+    
+    # set animation update interval
+    updateInterval = 50
+    if args.interval:
+        updateInterval = int(args.interval)
+    
+    # declare grid
+    grid = np.array([])
+    # check if "glider" demo flag is specified，设置初始条件，要么是默认的随机图案，要么是滑翔机图案。
+    if args.glider:
+        grid = np.zeros(N*N).reshape(N, N) #创建 N×N 的零值数组，
+        addGlider(1, 1, grid) #调用 addGlider()方法，初始化带有滑翔机图案的网格
+    else:
+    # populate grid with random on/off - more off than on
+        grid = randomGrid(N)
+    
+    # 设置动画
+    fig, ax = plt.subplots(facecolor='pink') #配置 matplotlib 的绘图和动画参数   
+    img = ax.imshow(grid,cmap=cmap, interpolation='nearest')  #用plt.show()方法将这个矩阵的值显示为图像，并给 interpolation 选项传入'nearest'值，以得到尖锐的边缘（否则是模糊的）
+    ani = animation.FuncAnimation(fig, update, fargs=(img, grid, N, ),#animation.FuncAnimation()调用函数 update()，该函数在前面的程序中定义，根据 Conway 生命游戏的规则，采用环形边界条件来更新网格。
+                                  frames=10,
+                                  interval=updateInterval,
+                                  save_count=50)
+    # number of frames?
+    # set the output file
+    if args.movfile:
+        ani.save(args.movfile, fps=30, extra_args=['-vcodec', 'libx264'])
+    plt.show()
+    
+ 
+# call main
+if __name__ == '__main__':
+    main()
+```
+
+![img](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424235216.png)
+
+图2.6.5 元胞自动机生命游戏的初始演化状态
+
+图2.6.5显示的是元胞自动机在某一特定时间点的状态，可以用来说明生命游戏中的复杂动态。在这个矩阵中，黄色的点代表活细胞（ON状态），紫色背景代表死细胞（OFF状态）。从图中可以观察到，活细胞聚集在一起形成了多种结构，包括一些小的集群和更大的复杂图案。
+
+#### 2.6.3. 元胞自动机的应用 —— 森林山火扩散模型
+
+在此小节中，我们利用元胞自动机模拟了森林火灾的扩散过程。通过建立一个简单的模型，我们能够观察火势如何在森林中蔓延，以及如何受到植被分布、环境因素和偶发事件（如闪电）的影响。本模型的基本假设包括：
+
+- 空地（黑色）、树木（绿色）、火焰（红色）三种状态；
+- 绿色树木可以因相邻的火焰而燃烧；
+- 空地上有一定的概率生长出新的树木；
+- 闪电可以随机引燃树木。
+
+通过设定不同的参数，如树木密度、燃烧概率、生长率和闪电概率，我们可以模拟出多种火灾情景。该模拟为理解火灾的动力学和预防措施提供了一个直观的平台。代码执行后，展示了500个模拟步骤，每一步都在更新显示火灾蔓延的状态。模拟的动态演示不仅可以帮助研究人员理解和预测真实世界中的火灾行为，也可用于教育和展示目的，以提高公众对森林火灾危险性的认识。
+
+在本节的代码中，我们使用numpy和matplotlib库来创建并迭代森林的状态，numpy用于高效的矩阵计算，而matplotlib则用于可视化每一步的结果。森林的每个单元格都可以根据邻居的状态和随机事件来更新其状态，从而产生一个动态且引人入胜的模拟过程。
+
+```python
+import numpy as np#科学计算库 处理多维数据(矩阵)
+import matplotlib.pyplot as plt#绘图工具库
+import matplotlib as mpl
+#设置基本参数
+global Row,Col#定义全局变量行和列
+Row=100#行
+Col=100#列
+forest_area=0.8#初始化这个地方是树木的概率
+firing=0.8#绿树受到周围树木引燃的概率
+grow=0.001#空地上生长出树木的概率
+lightning=0.00006#闪电引燃绿树的概率
+forest=(np.random.rand(Row,Col)<forest_area).astype(np.int8)
+#初始化作图
+plt.title("step=1",fontdict={"family":'Times New Roman',"weight":'bold',"fontsize":20})#字体，加粗，字号
+colors=[(0,0,0),(0,1,0),(1,0,0)]#黑色空地 绿色树 红色火
+bounds=[0,1,2,3]#类数组，单调递增的边界序列
+cmap=mpl.colors.ListedColormap(colors)#从颜色列表生成颜色的映射对象
+w=plt.imshow(forest,cmap=cmap,norm=mpl.colors.BoundaryNorm(bounds,cmap.N))
+
+#迭代
+T=500#迭代500次
+for t in range(T):
+    temp=forest#上一个状态的森林
+    temp=np.where(forest==2,0,temp)#燃烧的树变成空地
+    p0=np.random.rand(Row,Col)#空位变成树木的概率
+    temp=np.where((forest==0)*(p0<grow),1,temp)#如果这个地方是空位，满足长成绿树的条件，那就变成绿树
+    fire=(forest==2).astype(np.int8)#找到燃烧的树木
+    firepad=np.pad(fire,(1,1),'wrap')#上下边界，左右边界相连接
+    numfire=firepad[0:-2,1:-1]+firepad[2:,1:-1]+firepad[1:-1,0:-2]+firepad[1:-1,2:]
+    p21=np.random.rand(Row,Col)#绿树因为引燃而变成燃烧的树
+    p22=np.random.rand(Row,Col)#绿树因为闪电而变成燃烧的树
+    #Temp = np.where((forest == 1)&(((numfire>0)&(rule1prob<firing))|((numfire==0)&(rule3prob<lightning))),2,Temp)
+    temp=np.where(   (forest==1)&( ( (numfire>0)&(p21<firing)    ) | ((numfire==0)&(p22<lightning)     ) )                           ,2,temp)
+    
+    forest=temp#更新森林的状态
+    plt.title("step="+str(t),fontdict={"family":'Times New Roman',"weight":'bold',"fontsize":20})#字体，加粗，字号
+    w.set_data(forest)
+    plt.pause(0.1)
+plt.show()
+```
+
+![img](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240424235340.png)
+
+图2.6.6 森林火灾模拟的森林初始状态
+
+图2.6.6展示了元胞自动机模型中森林火灾模拟的起始状态，步骤为$0$。图中绿色单元代表树木，黑色空间代表没有树木的空地。在此状态下，森林尚未遭遇火灾，绿色树木的分布随机且密集，这提供了一个丰富的模拟环境，用于观察未来火势的蔓延路径和行为。随着模拟的进行，我们将能够见证由外界因素（如闪电）或树木间相互影响导致的火灾爆发和蔓延过程。
+
+#### 2.6.4. 元胞自动机的应用——蒲公英的生长
+
+在本节中，我们使用元胞自动机模型来探索蒲公英的生长模式，以及各种环境因素如何影响其生存和扩散。
+
+- **年度温度波动**：温度受多种因素影响，包括纬度、地形以及靠近水体的距离等。然而，在特定地点，年平均温度和最高最低温差已确定的情况下，温度变化主要由季节变化决定。数据分析表明，特定月份的温度可以通过在年平均温度上加上一个正弦波函数来确定。
+  $$
+  Temp=Temp\_Avg+Temp\_Diff · \cos(2\pi ·\frac{time}{12}).
+  $$
+
+- **日照时长的年度变化**：与受天气条件影响的日照时长不同，日照主要由季节决定。由于地球围绕太阳的周期性运动，各季节的日出和日落时间不同。日照时长用基础时长表示，即平均时长，并加上一个正弦波函数。
+  $$
+  Light = Daylight\_Avg+Daylight\_Diff·\cos(2\pi ·\frac{time}{12}).
+  $$
+  
+
+- **降水和风**：由于降水和风受到水体近程、温度、山脉存在、海流以及彼此相互影响等多种因素的影响，它们很难预测。然而，降水和风条件存在年度模式。因此，我们编制了三组数据集，每组包含12个元素，代表特定月份的平均降水和风条件。
+
+蒲公英种群和可用养分通过以下公式计算：
+$$
+Fertility(t + \Delta t) = Fertility(t)+Area·Repeletion\_Con·Rain\\-Population\_Adult·Comsumption\_Rate\_Adult\\-Population\_Seed·Comsumption\_Rate\_Seed.
+$$
+
+- **生育力**：土地中的总养分。最初，土地含有一定量的养分。
+- **面积**：土地的总面积。它与养分恢复率成正比，因为大块土地含有更多有机物和细菌。
+- **恢复_常数**：该常数用于评估每平方米面积的恢复率。
+- **降雨**：降雨量与养分恢复率成正比，因为单个细菌在给定时间内消耗一定量的水，并将一定量的有机物分解为养分。因此，能够存活的细菌数量与降雨量成正比。从而，降雨量与养分恢复率成正比。
+- **成熟植株消耗率** vs. **种子植株消耗率**：成熟植株需要产生种子，这是一个消耗大量能量的过程，而未成熟植株则没有繁殖压力。因此，成熟植株和未成熟植株的养分消耗率不同，应存储在不同的变量中。
+
+**解决问题—— 蔓延预测模型建立**
+
+**蔓延率**：考虑一块土地。来自源头*S*1、*S*2、*S*3等的种子落在它上面的概率分别是*P*1、*P*2、*P*3等。因此，它不接收到来自源头*S*1、*S*2、*S*3等任何一个种子的概率就是(1−*P*1)、(1−*P*2)、(1−*P*3)等。据此，该土地不接收到任何种子的概率是(1−*P*1)⋅(1−*P*2)⋅(1−*P*3)等的乘积。
+
+而该土地至少接收到一个种子，从而让蒲公英生长的概率是1减去上述概率：1−(1−*P*1)⋅(1−*P*2)⋅(1−*P*3)等。
+
+在没有风的情况下，蒲公英种子的扩散与距离呈指数关系递减，这是由下式建模的：
+$$
+Possibility=Spread\_Calm^{-Distance}.
+$$
+风的存在能将种子传播。我们假设种子源与风向一致，并以矢量加法简化此过程，其中风被视为一个矢量。因此，特定数量的种子被分布在变化的面积*A*=*π*⋅Distance2上。该可能性由下式建模：
+$$
+Possibility=\frac{Spread\_Wind}{Distance^2}.
+$$
+**生长率**：种子要发育到蒲公英蒴果阶段，需要一定的生长期。在更多养分和有利条件下，未成熟植株可以更快生长。我们创建了变量K*K*来确定未成熟植株每月的生长率。 蒲公英生长的最适温度区间能带来最佳结果。然而，在这一区间之外，蒲公英的生长速率呈指数级下降。
+
+**Algorithm 1** **蒲公英的生长速率**
+
+------
+
+**input**:Temp(环境温度)
+
+**output**:*k*Temp(温度影响的生长速率)
+
+**initialize**:*T*high(高温阈值), *T*low(低温阈值), Temp_Coeff(温度参数)
+
+------
+
+**if** *T*high>Temp>*T*low
+
+​	*k*Temp←1
+
+**else** **if** *T*high<Temp*k*Temp←Temp_Coeff*T*high−Temp
+
+**else**
+
+*k*Temp←Temp_CoeffTemp−*T*low
+
+------
+
+**return** *k*Temp
+
+------
+
+同样，蒲公英生长的最佳降水也是一个区间。在这个区间之外，生长速率呈指数级下降。
+
+------
+
+**Algorithm 2** **根据降水计算蒲公英的生长速率**
+
+------
+
+**input**:Rain(环境降水)
+
+**output**:*k*Rain(降水影响的生长速率)
+
+**initialize**:*R*high(高降水阈值), *R*low(低降水阈值), Rain_Coeff(降水参数)
+
+------
+
+**if** *R*Rain>Rain>*R*low
+
+*k*Temp←1
+
+**else** **if** *R*high<Rain*k*Rain←Rain_Coeff*R*high−Rain
+
+**else**
+
+k*Rain←Rain_CoeffRain−*R*low
+
+------
+
+**return** *k*Rain
+
+------
+
+日照对于光合作用至关重要，这意味着蒲公英的生长将随着平均每日日照时数的增加而增加。然而，效果并非线性，因为 *k*Lit 的最大值为：
+$$
+k_{Lit}=\frac{Light}{Light+Daylight\_Coeff}.
+$$
+生长率（*K*）可以使用以下公式计算：
+$$
+K=k_{Rain}·k_{Temp}·k_{Lit}·(\frac{Fertility}{Area}-Comsumption\_Rate\_Seed).
+$$
+我们定义蒲公英的起始状态为00，结束状态为11。每个月，每株蒲公英的生长状态都会增加该月的K*K*值。当生长状态超过11时，就将其标记为11，表示蒲公英已达到蒴果阶段。
+
+**死亡率**：蒲公英可能因营养不足、极端温度、过多或过少的降雨以及日照不足而死亡。为了评估每月死亡的可能性，我们开发了一个函数。值得注意的是，生长系数与存活系数不同，因为在极端条件下，植物的新陈代谢可以被减缓以提高其生存概率。
+
+![](G:\code\Intro-mathmodel\笔记\屏幕截图 2024-09-03 125641.png)
+
+每个月，每株未成熟的蒲公英都有一个SS的死亡可能性，而每株成熟的蒲公英有一个SA的死亡可能性。
+
+现在，让我们看一下生成这些图像的代码。代码使用Python编写，通过模拟环境因素如温度、日照、降雨以及风向对蒲公英生长和死亡率的影响来预测蒲公英种群在特定区域的扩散。通过对光合作用、温度和降雨的最佳范围进行建模，这个程序能够模拟蒲公英如何在不同月份内生长并影响土地的肥沃程度。此外，模拟还考虑了成熟植株和种子植株的养分消耗率差异，以及不同生长阶段植株的生存率。这些参数合作模拟了蒲公英如何在一个假设的生态系统中扩散，最终达到一个动态平衡。
+
+```python
+import random
+import matplotlib.pyplot as plt
+import math
+#spread factors
+Spread_Calm = math.e
+Spread_wind = 0.5
+#a variable that describe the fertility of land
+Fertility = 10000
+#a constant that describe rate of repletion per area
+Repletion_Con = 0.006
+#a constant that describe the rate of energy use of a dandelion
+Consumption_rate_Adult = 1
+Consumption_rate_Seed = 0.5
+#a variable that describe the population of dandelion
+population_adult = 0
+population_seed = 0
+#a constant describe effect of temperature on germination
+Temp_Coefficient = 1.125
+#a constant describe effect of temperature on survival
+Temp_Survival = 1.01
+#a constant describe effect of rainfall on germination
+Rain_Coefficient = 1.03
+#a constant describe effect of rainfall on survival
+Rain_Survival = 1.005
+#a constant describe effect of daylight on germination
+Daylight_Coefficient = 1
+#a constant describe effect of daylight on survival
+Daylight_Survival = 0.3
+#upper limit of optimum temperature
+Thigh = 25
+#lower limit of optimum temperature
+Tlow = 15
+#upper limit of optimum rainfall
+Rhigh = 200
+#lower limit of optimum rainfall
+Rlow = 50
+#initialize a variable that describe possibility of germination
+K = 0
+#initialize a variable that describe possibility of survival
+SA = 0
+SS = 0
+#initialize a variable that describe growth rate
+Rate = 0
+#a constant that describe the size of a single plant in metre
+width = 1
+#initialize time of a year in month
+time = 1
+#number of months want to predict
+Period = 48
+#time counter
+Tcounter = 0
+#wind factor of west-east wind in each month
+W_west_east = [0,0,0,0,0,0,0,0,0,0,0,0]
+#wind factor of south-north wind in each month
+W_south_north = [0,0,0,0,0,0,0,0,0,0,0,0]
+Rainfall = [200,200,200,200,200,200,200,200,200,200,200,200]
+Daylight_Avg = 12
+Daylight_Diff = 0
+Temperature_Avg = 16
+Temperature_Diff = 0
+def Temperature(Avg,Diff,T):
+    temperature = Avg - Diff*math.cos(2*(math.pi)*(T/12))
+    return temperature
+def Daylight(Avg,Diff,T):
+    daylight = Avg - Diff*math.cos(2*(math.pi)*(T/12))
+    return daylight
+def Germination(Tem,Rain,Lit):
+    k_Tem = 0
+    k_Rain = 0
+    k_Lit = 0
+    if Tem < Tlow:
+        k_Tem = (Temp_Coefficient)**(Tem-Tlow)
+    elif Tem > Thigh:
+        k_Tem = (Temp_Coefficient)**(Thigh-Tem)
+    else:
+        k_Tem = 1
+    if Rain < Rlow:
+        k_Rain = (Rain_Coefficient)**(Rain-Rlow)
+    elif Rain > Rhigh:
+        k_Rain = (Rain_Coefficient)**(Rhigh-Rain)
+    else:
+        k_Rain = 1
+    k_Lit = Lit/(Lit+Daylight_Coefficient)
+    k = k_Tem*k_Rain*k_Lit*((Fertility/10000)-Consumption_rate_Seed)
+    return k
+def Survival(Tem,Rain,Lit,type):
+    k_Tem = 0
+    k_Rain = 0
+    k_Lit = 0
+    if Tem < Tlow:
+        k_Tem = (Temp_Survival)**(Tem-15)
+    elif Tem > Thigh:
+        k_Tem = (Temp_Survival)**(25-Tem)
+    else:
+        k_Tem = 1
+    if Rain < Rlow:
+        k_Rain = (Rain_Survival)**(Rain-Rlow)
+    elif Rain > Rhigh:
+        k_Rain = (Rain_Survival)**(Rhigh-Rain)
+    else:
+        k_Rain = 1
+    k_Lit = Lit/(Lit+Daylight_Survival)
+    if type == 0:
+        s = k_Tem*k_Rain*k_Lit*((Fertility/10000)-Consumption_rate_Adult)
+    else:
+        s = k_Tem*k_Rain*k_Lit*((Fertility/10000)-Consumption_rate_Seed)
+    return s
+#initialize the field
+#(0,0,0) represent empty land, (0,255,0) represent seed, (255,255,255) represent dandelion
+field = [[(0,0,0) for i in range(int(100/width))] for j in range(int(100/width))]
+#initialize the field for growth time
+growth_table = [[0 for i in range(int(100/width))] for j in range(int(100/width))]
+#set the first dandelion
+field[0][0] = (255,255,255)
+growth_table[0][0] = 1
+for Tcounter in range(Period):
+    population_adult = 0
+    population_seed = 0
+    for Column_index in range(int(100/width)):
+        for Row_index in range(int(100/width)):
+            if field[Column_index][Row_index] == (255,255,255):
+                population_adult = population_adult + 1
+            if field[Column_index][Row_index] == (0,255,0):
+                population_seed = population_seed + 1
+    temp = Temperature(Temperature_Avg,Temperature_Diff,time)
+    light = Daylight(Daylight_Avg,Daylight_Diff,time)
+    rain = Rainfall[time-1]
+    Fertility = Fertility + 10000*Repletion_Con*rain
+    Fertility = Fertility - population_adult*Consumption_rate_Adult - population_seed*Consumption_rate_Seed
+    K = Germination(temp,rain,light)
+    SA = Survival(temp,rain,light,0)
+    SS = Survival(temp,rain,light,1)
+    for Column_index in range(int(100/width)):
+        for Row_index in range(int(100/width)):
+            if growth_table[Column_index][Row_index] >= 1 and field[Column_index][Row_index] == (0,255,0):
+                field[Column_index][Row_index] = (255,255,255)
+                growth_table[Column_index][Row_index] = 1
+    for Column_index in range(int(100/width)):
+        for Row_index in range(int(100/width)):
+            if field[Column_index][Row_index] == (0,0,0):
+                Spreading = 1
+                no_seed = 1
+                for inner_column in range(int(100/width)):
+                    for inner_row in range(int(100/width)):
+                        if field[inner_column][inner_row] == (255,255,255):
+                            Distance = ((Column_index-(inner_column+W_south_north[time-1]))**2+(Row_index-(inner_row+W_west_east[time-1]))**2)**(0.5)
+                            if W_south_north[time-1] != 0 or W_west_east[time-1] != 0:
+                                if Distance == 0:
+                                    have_seed = Spread_wind
+                                else:
+                                    have_seed = Spread_wind/((Distance)**2)
+                            else:
+                                have_seed = Spread_Calm**(-1*Distance)
+                            no_seed = no_seed*(1-have_seed)
+                Spreading = 1-no_seed
+                Possibility_factor = random.random()
+                if Spreading>=Possibility_factor:
+                    field[Column_index][Row_index] = (0,255,0)
+                    growth_table[Column_index][Row_index] = 0
+    for Column_index in range(int(100/width)):
+        for Row_index in range(int(100/width)):
+            if field[Column_index][Row_index] == (0,255,0):
+                growth_table[Column_index][Row_index] = growth_table[Column_index][Row_index] + K
+    for Column_index in range(int(100/width)):
+        for Row_index in range(int(100/width)):
+            if field[Column_index][Row_index] == (0,255,0):
+                Possibility_factor = random.random()
+                if SS <= Possibility_factor:
+                    field[Column_index][Row_index] = (0,0,0)
+                    growth_table[Column_index][Row_index] = 0
+            elif field[Column_index][Row_index] == (255,255,255):
+                Possibility_factor = random.random()
+                if SA <= Possibility_factor:
+                    field[Column_index][Row_index] = (0,0,0)
+                    growth_table[Column_index][Row_index] = 0
+    if time <12:
+        time = time + 1
+    else:
+        time = 1
+    plt.imshow(field)
+    plt.title('Field')
+    plt.xlabel('distance/m')
+    plt.ylabel('distance/m')
+    plt.show()
+```
+
+![img](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240425122903.png)
+
+图2.6.7 蒲公英生长和扩散模拟图图2.6.7展示了蒲公英在不同月份的生长状态。从左上角的“January”开始，显示了一片黑暗的土地，仅有一点绿色表示蒲公英的存在。随着时间的推移，我们可以看到蒲公英的种子开始扩散（如“July”和“August”所示），覆盖区域逐渐增大。到了“October”和“November”，绿色区域大幅增加，表明蒲公英种群迅速增长。在“December”和次年的“January”中，整个区域几乎完全被蒲公英所覆盖。进入次年“February”，蒲公英的覆盖面积略有减少，可能是由于模型中设定的环境因素影响。整体上，这些图像展现了从一片几乎未被侵占的土地到蒲公英占据主导地位的过程，以及不同月份条件下生态系统的动态变化。
+
+#### 2.6.5. 元胞自动机的应用——新冠病毒的扩散
+
+在本节中，我们探讨使用元胞自动机模型模拟新冠病毒（COVID-19）的扩散。在这个模型中，每个细胞代表一个人，可以处于以下状态之一：易感者（S0），感染者（S1），治愈者（S2），或潜伏者（S3）。模型中包含以下转换规则：
+
+- 易感者（S0）根据邻近感染者的数量以一定概率变成潜伏者（S3）或直接变成感染者（S1）；
+- 感染者（S1）具有传播病毒的能力，经过一段时间后自动变成治愈者（S2）；
+- 治愈者（S2）拥有暂时免疫力，但在本模型中，我们假设治愈者获得永久免疫；
+- 潜伏者（S3）在经过一定潜伏期后变成感染者（S1）。
+
+通过这个模型，我们能够模拟和观察疾病如何在人群中传播，以及不同的干预措施如何影响疾病的扩散。例如，可以通过调整感染率、潜伏期和治愈时间的参数来模拟不同的公共卫生策略，如社交距离、戴口罩和隔离措施的效果。此模型为疾病控制决策提供了一个有力的工具，并有助于公共卫生专家和政策制定者更好地理解和应对疫情。
+
+我们使用Python编写了一个简单的模拟程序，其中包括初始化各状态的人群分布、定义状态转换规则以及视觉展示模拟过程。pygame库用于绘制和更新模拟的图形界面，而matplotlib用于绘制随时间变化的人群状态图表。
+
+```python
+# 状态：
+# S0表示易感者S
+# S1表示感染者I
+# S2表示治愈者R
+# S3表示潜伏者E
+
+# 规则：
+# 1. 当S=S0时，为易感者，被感染率为p=k*(上下左右邻居的感染者)/4+l*(左上左下右上右下邻居的感染者)/4,概率c1变为潜伏者,概率1-c1变为感染者
+# 2. 当S=S1时，为感染者，具有一定的感染能力，等待t_max时间，会自动变为S2治愈者，染病时间初始化为0
+# 3. 当S=S2时，为治愈者，[具有一定的免疫能力，等待T_max时间，会自动变为S0易感者，免疫时间初始化为0],改为永久免疫
+# 4. 当S=S3时,为潜伏者,等待t1_max时间(潜伏时间),会自动变为S1感染者,潜伏时间初始化为0,
+from pylab import *
+import random
+import numpy as np
+import pygame
+import sys
+import matplotlib.pyplot as plt
+# 初始化相关数据
+k=0.85  #上下左右概率
+l=0.55  #其它概率
+c1=0.4  #c1概率变为潜伏者
+t1_max=15 #潜伏时间
+t_max=50 #治愈时间
+T_max=75 #免疫时间   
+# p = np.array([0.6, 0.4])
+# probability = np.random.choice([True, False],
+# p=p.ravel())  # p(感染or潜伏)=(self.s1_0*k+self.s1_1*l) p(易感)=1-(self.s1_0*k+self.s1_1*l)
+def probablity_fun():
+    np.random.seed(0)
+    # p = np.array([(self.s1_0*k+self.s1_1*l),1-(self.s1_0*k+self.s1_1*l)])
+    p = np.array([0.6, 0.4])
+    probability = np.random.choice([True, False],
+                                   p=p.ravel())  # p(感染or潜伏)=(self.s1_0*k+self.s1_1*l) p(易感)=1-(self.s1_0*k+self.s1_1*l)
+    return probability
+RED = (255, 0, 0)
+GREY = (127, 127, 127)
+Green = (0, 255, 0)
+BLACK = (0, 0, 0)
+"""细胞类，单个细胞"""
+class Cell:
+    # 初始化
+    stage = 0
+    def __init__(self, ix, iy, stage):
+        self.ix = ix
+        self.iy = iy
+        self.stage = stage            #状态，初始化默认为0，易感者
+        # self.neighbour_count = 0    #周围细胞的数量
+        self.s1_0 = 0                 #上下左右为感染者的数量
+        self.s1_1 = 0                 #左上左下右上右下感染者的数量
+        self.T_ = 0                  #免疫时间
+        self.t_ = 0                  #患病时间
+        self.t1_ = 0                 #潜伏时间
+    # 计算周围有多少个感染者
+    def calc_neighbour_count(self):
+        count_0 = 0
+        count_1 = 0
+        pre_x = self.ix - 1 if self.ix > 0 else 0
+        for i in range(pre_x, self.ix+1+1):
+            pre_y = self.iy - 1 if self.iy > 0 else 0
+            for j in range(pre_y, self.iy+1+1):
+                if i == self.ix and j == self.iy:   # 判断是否为自身
+                    continue
+                if self.invalidate(i, j):           # 判断是否越界
+                    continue
+                if CellGrid.cells[i][j].stage == 1 or CellGrid.cells[i][j] == 3 :  #此时这个邻居是感染者
+                    #如果是在上下左右
+                    if (i==self.ix and j==self.iy-1) or \
+                       (i==self.ix and j==self.iy+1) or \
+                       (i==self.ix-1 and j==self.iy) or \
+                       (i==self.ix+1 and j==self.iy):
+                        count_0+=1
+                    else:
+                        count_1+=1
+        # print(count_0)
+        self.s1_0 = count_0
+        # if self.s1_1!=0:
+        #     print(count_1,count_0,self.ix,self.iy)
+        self.s1_1 = count_1
+    # 判断是否越界
+    def invalidate(self, x, y):
+        if x >= CellGrid.cx or y >= CellGrid.cy:
+            return True
+        if x < 0 or y < 0:
+            return True
+        return False
+    # 定义规则
+    def next_iter(self):
+        # 规则1，易感者
+        if self.stage==0:
+            probability=random.random()#生成0到1的随机数
+            s1_01 = self.s1_0 * k + self.s1_1 * l
+            if (s1_01>probability) and (s1_01!=0):
+                p1 = random.random()
+                if p1>c1:
+                    self.stage=1
+                else:
+                    self.stage=3
+            else:
+                self.stage = 0
+        # 规则2，感染者
+        elif self.stage == 1:
+            if self.t_ >= t_max:
+                self.stage = 2
+            else:
+                self.t_ = self.t_ + 1
+        # 规则3，治愈者(永久免疫规则)
+        elif self.stage == 2:
+            if self.T_ >= T_max:
+                self.stage = 0
+            else:
+                self.T_ = self.T_ + 1
+        # 规则4,潜伏者
+        elif self.stage == 3:
+            if self.t1_ >= t1_max:
+                self.stage = 1  # 转变为感染者
+            else:
+                self.t1_ += 1
+"""细胞网格类，处在一个长cx,宽cy的网格中"""
+class CellGrid:
+    cells = []
+    cx = 0
+    cy = 0
+    # 初始化
+    def __init__(self, cx, cy):
+        CellGrid.cx = cx
+        CellGrid.cy = cy
+        for i in range(cx):
+            cell_list = []
+            for j in range(cy):
+                cell = Cell(i, j, 0)            #首先默认为全是易感者
+                if (i == cx/2 and j ==cy/2) or (i==cx/2+1 and j==cy/2) or (i==cx/2+1 and j==cy/2+1):#看26行就可以了
+                    cell_list.append(Cell(i,j,1))
+                else:
+                    cell_list.append(cell)
+            CellGrid.cells.append(cell_list)
+    def next_iter(self):
+        for cell_list in CellGrid.cells:
+            for item in cell_list:
+                item.next_iter()
+    def calc_neighbour_count(self):
+        for cell_list in CellGrid.cells:
+            for item in cell_list:
+                item.calc_neighbour_count()
+    def num_of_nonstage(self):
+        # global count0_,count1_,count2_
+        count0 = 0
+        count1 = 0
+        count2 = 0
+        count3 = 0
+        for i in range(self.cx):
+            for j in range(self.cy):
+                # 计算全部的方格数
+                cell = self.cells[i][j].stage
+                if cell == 0:
+                    count0 += 1
+                elif cell == 1:
+                    count1 += 1
+                elif cell == 2:
+                    count2 += 1
+                elif cell == 3:
+                    count3 += 1
+        return count0, count1, count2, count3
+'''界面类'''
+class Game:
+    screen = None
+    count0 = 0
+    count1 = 9
+    count2 = 0
+    count3 = 0
+    def __init__(self, width, height, cx, cy):#屏幕宽高，细胞生活区域空间大小
+        self.width = width
+        self.height = height
+        self.cx_rate = int(width / cx)
+        self.cy_rate = int(height / cy)
+        self.screen = pygame.display.set_mode([width, height])#
+        self.cells = CellGrid(cx, cy)
+    def show_life(self):
+        for cell_list in self.cells.cells:
+            for item in cell_list:
+                x = item.ix
+                y = item.iy
+                if item.stage == 0:
+                    pygame.draw.rect(self.screen, GREY,
+                                     [x * self.cx_rate, y * self.cy_rate, self.cx_rate, self.cy_rate])
+                elif item.stage == 2:
+                    pygame.draw.rect(self.screen, Green,
+                                     [x * self.cx_rate, y * self.cy_rate, self.cx_rate, self.cy_rate])
+                elif item.stage == 1:
+                    pygame.draw.rect(self.screen, RED,
+                                     [x * self.cx_rate, y * self.cy_rate, self.cx_rate, self.cy_rate])
+                elif item.stage == 3:
+                    pygame.draw.rect(self.screen, BLACK,
+                                     [x * self.cx_rate, y * self.cy_rate, self.cx_rate, self.cy_rate])
+    # def count_num(self):
+    #     self.count0, self.count1, self.count2,self.count3 = self.cells.num_of_nonstage()
+mpl.rcParams['font.sans-serif'] = ['FangSong'] # 指定默认字体
+mpl.rcParams['axes.unicode_minus'] = False # 解决保存图像是负号'-'显示为方块的问题
+if __name__ == '__main__':
+    count0_ = []
+    count1_ = []
+    count2_ = []
+    count3_ = []
+    pygame.init()
+    pygame.display.set_caption("传染病模型")
+    game = Game(800, 800, 200, 200)
+    clock = pygame.time.Clock()
+    k1 = 0
+    while True:
+        k1 += 1
+        print(k1)
+        # game.screen.fill(GREY)#底部全置灰
+        clock.tick(100)  # 每秒循环10次
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sys.exit()
+        game.cells.calc_neighbour_count()
+        count0, count1, count2,count3 = game.cells.num_of_nonstage()
+        # count0,count1,count2 = game.count_num()
+        count0_.append(count0)
+        count1_.append(count1)
+        count2_.append(count2)
+        count3_.append(count3)
+        if count2 > 200*190:  # 退出条件
+            break
+        plt.plot(count0_, color='y', label='易感者')
+        plt.plot(count3_, color='b', label='潜伏者')
+        plt.plot(count1_, color='r', label='感染者')
+        plt.plot(count2_, color='g', label='治愈者')
+        # plt.ylim([0,80000])
+        plt.legend()
+        plt.xlabel('时间单位')
+        plt.ylabel('人数单位')
+        plt.pause(0.1)#0.1秒停一次
+        plt.clf()#清除
+        # plt.close()#退出
+        game.show_life()
+        pygame.display.flip()
+        game.cells.next_iter()
+    plt.show() #显示
+```
+
+![500](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240425123007.png)
+
+图2.6.8 新冠病毒扩散模拟及人群状态动态
+
+图2.6.8左侧展示了一个使用元胞自动机模拟新冠病毒扩散过程的界面。在模拟环境中，红色区域代表感染者（S1），绿色区域代表治愈者（S2），黑色点代表潜伏者（S3），而易感者（S0）则未在图中标出。我们可以看到，随着时间的推移，感染区从中心向外扩散，形成了明显的红色圆环，而治愈者则位于环的内部。
+
+右侧图是随着时间推移的人群状态变化曲线图，横轴表示时间，纵轴表示人数。不同颜色的曲线代表不同状态的人群数量：黄色曲线代表易感者（S0），蓝色曲线代表潜伏者（S3），红色曲线代表感染者（S1），绿色曲线代表治愈者（S2）。从曲线图可以看出，随着时间的推移，感染者人数先增加后减少，治愈者人数逐渐增加，潜伏者人数有一个短暂的峰值，而易感者人数则持续减少。这反映了疾病传播和人群免疫状态的动态变化。
+
+### 2.7. 数值计算方法与微分方程求解
+
+在使用Python求微分方程的数值解或函数极值时，你可能会发现其与MATLAB在使用上有所不同。但你有没有想过，Python是如何求出这些数值解的呢？这背后涉及到的算法，通常会在工程数学和数值分析课程中学到。为了帮助大家更好地理解这些计算的基本原理，我们特别增加了一节内容，介绍一些基础的数值计算方法。如果你感兴趣，甚至可以尝试自己编写一个求解器。
+
+#### 2.7.1 Python通过什么求数值解
+
+在Python中，数值计算方法主要依赖于一些专门的库，如NumPy、SciPy和SymPy等。这些库提供了丰富的数学函数和算法，用于处理线性代数、微积分、优化问题等。例如，SciPy中的`scipy.optimize`模块可以用于求解函数的极值，`scipy.integrate`模块可以用于数值积分，而`scipy.linalg`模块则提供了线性代数的相关功能。通过这些工具，我们可以在Python中有效地进行数值计算和求解微分方程。
+
+数值计算方法是一种求解数学问题的近似方法，它在计算机上被广泛应用于各种数学问题的求解。无论是在科学研究还是工程技术中，计算方法都扮演着重要的角色。随着计算机技术的快速发展，计算方法已经成为理工科学生的一门必修课程。计算方法主要研究微积分、线性代数和常微分方程中的数学问题，内容涵盖插值和拟合、数值微分和积分、线性方程组的求解、矩阵特征值和特征向量的计算，以及常微分方程的数值解等。
+
+在Python中，类似MATLAB中的`fsolve`和`odeint`这样的函数，正是依赖于这些数值计算方法来工作的。下面，我们将介绍几种经典的数值计算方法。
+
+#### 2.7.2. 梯度下降法
+
+梯度下降法是解决优化问题的一种普遍手段，尤其在机器学习和深度学习领域中。其核心思路是：从一个初始位置开始，沿着目标函数梯度的相反方向（即最速下降方向）逐步更新位置，直至达到最小值点。在Python中，我们通常利用NumPy等工具包来计算梯度，并按照梯度下降的更新规则调整变量值。
+
+其基本原理简洁明了，即从一个初始点出发，计算当前点的梯度，并依照以下迭代规则进行更新：
+$$
+x_{t+1} \leftarrow x_t - \alpha · grad(f).
+$$
+当前后两次迭代的函数值之差满足一个很小的阈值（误差的容许范围）时我们认为迭代基本成功。或者从另一个角度，由于极值点的偏导数为0，那么当梯度的模接近0时，也可认为找到了极小值点。不过，个人建议使用函数值差异作为更准确的判断标准。
+
+> 注意：事实上，在机器学习的实际应用中，由于数据量庞大，梯度下降通常有三种变体：随机梯度下降、批量梯度下降和小批量梯度下降。此外，还可以引入动量等技术来优化梯度下降过程。这些内容将在后续章节详细介绍。
+
+以函数的极值为例，我们利用梯度下降函数去进行求解：
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+x=np.linspace(-6,4,100)
+y=x**2+2*x+5
+
+可以编写如下的梯度下降函数。
+#将迭代的点描绘出来更直观形象
+x_iter=1#设置x的初始值
+yita=0.06#步长
+count=0#记录迭代次数
+while True:
+    count+=1
+    y_last=x_iter**2+2*x_iter+5
+    x_iter=x_iter-yita*(2*x_iter+2)
+    y_next=x_iter**2+2*x_iter+5
+    plt.scatter(x_iter,y_last)
+    if abs(y_next-y_last)<1e-100:
+        break
+print('最小值点x=',x_iter,'最小值y',y_next,'迭代次数n=',count)
+x=np.linspace(-4,6,100)
+y=x**2+2*x+5
+plt.plot(x,y,'--')
+plt.show()
+最终解得：
+最小值点x= -0.9999999616185459 最小值y 4.000000000000002 迭代次数n= 139
+```
+
+已经非常接近精确解−1，虽然有一定误差但很小，结果也确实满足了我们预先设置的要求。图像如下：
+
+![img](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240425123215.png)
+
+图2.7.1 梯度下降的迭代结果
+
+#### 2.7.3. Newton法
+
+Newton法，也称为切线法，是一种寻找函数零点的有效方法。其思路是从一个初始估计值开始，不断迭代更新，直到找到零点或达到预定精度。在求解函数极值问题时， Newton法通过寻找函数导数的零点来实现。它的原理如图3.16所示：
+
+![img](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240425123400.png)
+
+图2.7.2 Newton法示意图
+
+如图2.7.2，假设我们想要求解方程$y=x^{2}-C$的零点，，我们从一个初始点$x_0$开始。 Newton法首先在$x=x_0$处求函数的切线，并找到切线与$\mathrm{x}$轴的交点$x_{1}$，然后在$x=x_{1}$处再次求切线，找到新的交点$x_{2}$，如此不断迭代下去，最终会逼近$x_0$附近的零点。以下是用Python实现的 Newton法示例代码：
+
+```python
+import numpy as np
+def f(x):
+    y=x**3-x-1#求根方程的表达式
+    return y
+def g(x):
+    y=3*x**2-1#求根方程的导函数
+    return y
+def main():
+    x_0=1.5 #取初值
+    e=10**(-9) #误差要求
+    L=0 #初始化迭代次数
+    while L<100: #采用残差来判断
+        x1=x_0-f(x_0)/g(x_0) #迭代公式,x(n+1)=x(n)-f(x(n))/f'(x(n))
+        x_0=x1
+        L=L+1 #统计迭代次数
+        if abs(f(x_0)-0)<e:
+            break
+    print(f"x1={x1}") #输出数值解
+    print(f(x_0)-0)  # 验证解的正确性
+    print(f"L={L}") #输出迭代次数
+if __name__ == '__main__':
+   main()
+```
+
+注意：Python中不需要像MATLAB那样使用特殊函数来控制结果的精度，因为Python的浮点数运算本身就具有较高的精度。
+
+最终解得：
+
+```python
+x1=1.3247179572447898 1.865174681370263e-13 L=4
+```
+
+程序能够利用 Newton法搜索到起始点最近的一个零点。
+
+#### 2.7.4. Euler 法与 Runge-Kutta 法
+
+在数值计算微分方程的过程中，一个核心的概念是用差分方法来近似微分。Euler 法和Runge-Kutta 法都是基于这一思想发展而来的。图2.7.3给出了 Runge-Kutta 法的示意图：
+
+![img](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240425123457.png)
+
+图2.7.3 Runge-Kutta 法示意图
+
+如图2.7.3所示，我们考虑一个小的区间$h$。在数值微分中，我们希望在这个小区间内，函数的差分增量（即直线的斜率）能够尽可能接近其微分增量（即曲线的斜率）。但是，如图所示，如果我们仅仅使用x_0点处的斜率，差分增量会比微分增量小；而如果使用$(x_0+h)$点处的斜率，差分增量又会比微分增量大。那么，我们能否找到一种折中的方法呢？
+
+- 第一种思路是取*x*0点和(*x*0+*h*)点处斜率的平均值作为差分增量的斜率。这样，我们得到的差分增量就会更接近微分增量，这是改进 Euler 法的基本思想。
+
+> 注意：使用当前点和下一点的导数值进行迭代的方法称为前向 Euler 法和后向 Euler 法。
+
+- 另一种思路是在x_0和(x_0+h)之间取不同点的斜率进行平均，然后进行迭代。这是 Runge-Kutta 法的基本思想
+
+典型的四阶 Runge-Kutta 法会使用四个不同点处的斜率进行迭代计算。经典四阶Runge-Kutta 法的迭代斜率如下：
+$$
+K_1 \leftarrow f(x_i, y_i),\\
+K_2 \leftarrow f(x_i + \frac{h}{2},y_i + \frac{K_1}{2}·h),\\
+K_4 \leftarrow f(x_i + \frac{h}{2},y_i + \frac{K_2}{2}·h),\\
+K_4 \leftarrow f(x_i + h, y_i + K_3h),\\
+y_{i + 1} \leftarrow y_i + \frac{h}{6}(K_1 + 2K_2+2K_3+K_4).
+$$
+我们可以编写一个程序自己实现 Runge-Kutta 法：
+
+```python
+import math
+import numpy as np
+import matplotlib.pyplot as plt
+
+def runge_kutta(y, x, dx, f):
+    """ y is the initial value for y
+        x is the initial value for x
+        dx is the time step in x
+        f is derivative of function y(t)
+    """
+    k1 = dx * f(y, x)
+    k2 = dx * f(y + 0.5 * k1, x + 0.5 * dx)
+    k3 = dx * f(y + 0.5 * k2, x + 0.5 * dx)
+    k4 = dx * f(y + k3, x + dx)
+    return y + (k1 + 2 * k2 + 2 * k3 + k4) / 6.
+t = 0.
+y = 0.
+dt = .1
+ys, ts = [0], [0]
+def func(y, t):
+    return  1/(1+t**2)-2*y**2
+while t <= 10:
+    y = runge_kutta(y, t, dt, func)
+    t += dt
+    ys.append(y)
+    ts.append(t)
+YS=odeint(func,y0=0, t=np.arange(0,10.2,0.1))
+plt.plot(ts, ys, label='runge_kutta')
+plt.plot(ts, YS, label='odeint')
+plt.legend()
+plt.show()
+```
+
+![img](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240425124126.png)
+
+图2.7.4 使用 Python 实现的 Runge-Kutta 法与`odeint`函数的对比
+
+图2.7.4展示了使用两种不同数值解法求解微分方程的结果对比：Runge-Kutta 方法（标记为 `runge_kutta`）和 Python 的`odeint`函数。水平轴代表时间变量`t`，范围从`0`到`10`，垂直轴代表函数`y(t)`的值。
+
+图中，我们可以看到两条曲线：一条代表 Runge-Kutta 法，另一条代表`odeint`函数。两条曲线从`t = 0`时的同一个初始`y`值开始，随着时间的推移而分开。Runge-Kutta 方法的曲线呈现出开始时的急剧上升，达到顶点后逐渐下降，并在`t`接近`10`时趋近于零。`odeint`函数的曲线紧跟 Runge-Kutta 方法的曲线，表明两种方法提供了相似的微分方程解，虽然存在轻微的变化。
+
+我们可以用自己写的龙格库塔测试洛伦兹系统的结果：
+
+```python
+import numpy as np
+def move(P, steps, sets):
+    x, y, z = P
+    sgima, rho, beta = sets
+    # 各方向的速度近似
+    dx = sgima * (y - x)
+    dy = x * (rho - z)
+    dz = x * y - beta * z
+    return [x + dx * steps, y + dy * steps, z + dz * steps]
+
+# 设置sets参数
+sets = [10., 28., 3.]
+t = np.arange(0, 30, 0.01)
+# 位置1：
+P0 = [0., 1., 0.]
+P = P0
+d = []
+for v in t:
+    P = move(P, 0.01, sets)
+    d.append(P)
+dnp = np.array(d)
+# 位置2：
+P02 = [0., 1.01, 0.]
+P = P02
+d = []
+for v in t:
+    P = move(P, 0.01, sets)
+    d.append(P)
+dnp2 = np.array(d)
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.plot(dnp[:, 0], dnp[:, 1], dnp[:, 2])
+ax.plot(dnp2[:, 0], dnp2[:, 1], dnp2[:, 2])
+plt.show()
+```
+
+在洛伦兹方程上测试得到结果如图2.7.5所示。洛伦兹方程实际上就是“蝴蝶效应”的数学原理，它的曲线非常像一只蝴蝶。这是在混沌系统研究中得到的结论，当给这个系统一个微小的扰动就会引起极大的变化。也证明这一系统是不稳定的。
+
+![img](https://datawhalechina.github.io/intro-mathmodel/CH2/attachments/Pasted%20image%2020240425124338.png)
+
+图2.7.5 使用 Runge-Kutta 法模拟洛伦兹系统
+
+读者若有兴趣，还可以试着改写上面的函数实现改进 Euler 法。
+
+#### 2.7.5. Crank-Nilkson 法在热传导问题中的应用
+
+Crank-Nicolson 法是数值分析中一种用于求解热传导方程和类似偏微分方程的时间推进技术。与纯显式或隐式方法相比，它通过时间中心差分的方式，既稳定又准确。在本节中，我们将探讨如何使用Crank-Nicolson 法求解一维热传导问题，并将其与传统的显式和隐式方法进行比较。
+
+首先，我们需要设定一些初始参数，包括热传导系数、空间和时间的最大范围、步长，以及相关的网格比。在给定这些参数后，我们用Python创建一个矩阵来初始化温度分布，并设定边界条件。在边界处，温度随时间的变化采用指数函数来模拟。本文所示的代码包含几个不同的数值方法：
+
+- **古典显式方法**：一种简单但当时间步长较大时可能不稳定的方法；
+- **古典隐式方法**：利用逆矩阵求解，计算上更稳定，适用于更大的时间步长；
+- **古典隐式方法**（追赶法）：一个更高效的算法，避免了直接计算矩阵的逆；
+- **Crank-Nicolson 法**（逆矩阵）：结合显式和隐式方法的优点，提高了稳定性和精确度；
+- **Crank-Nicolson 法**（追赶法）：同样结合了显式和隐式的优点，但使用追赶法提高计算效率；
+
+除此之外，我们还提供了一个精确解函数，用于验证数值解的准确性。所有的数值方法均以Python函数的形式实现，并在结束时将结果输出到Excel文件中，便于分析和对比。
+
+```python
+import numpy as np
+import pandas as pd
+import datetime
+start_time = datetime.datetime.now()
+np.set_printoptions(suppress=True)
+def left_boundary(t):  # 左边值
+    return np.exp(t)
+def right_boundary(t):  # 右边值
+    return np.exp(t + 1)
+def initial_T(x_max, t_max, delta_x, delta_t, m, n):  # 给温度T初始化
+    T = np.zeros((n + 1, m + 1))
+    for i in range(m + 1):  # 初值
+        T[0, i] = np.exp(i * delta_x)
+ 
+    for i in range(1, n + 1):  # 注意不包括T[0,0]与T[0,-1]
+        T[i, 0] = left_boundary(i * delta_t)  # 左边值
+        T[i, -1] = right_boundary(i * delta_t)  # 右边值
+    return T
+
+
+# 一、古典显格式
+def one_dimensional_heat_conduction1(T, m, n, r):
+    # 可以发现当r>=0.5时就发散了
+    for k in range(1, n + 1):  # 时间层
+        for i in range(1, m):  # 空间层
+            T[k, i] = (1 - 2 * r) * T[k - 1, i] + r * (T[k - 1, i - 1] + T[k - 1, i + 1])
+    return T.round(6)
+
+
+# 二、古典隐格式（乘逆矩阵法）
+def one_dimensional_heat_conduction2(T, m, n, r):
+    A = np.eye(m - 1, k=0) * (1 + 2 * r) + np.eye(m - 1, k=1) * (-r) + np.eye(m - 1, k=-1) * (-r)
+    a = np.ones(m - 1) * (-r)
+    a[0] = 0
+    b = np.ones(m - 1) * (1 + 2 * r)
+    c = np.ones(m - 1) * (-r)
+    c[-1] = 0
+ 
+    F = np.zeros(m - 1)  # m-1个元素，索引0~(m-2)
+    for k in range(1, n + 1):  # 时间层range(1, n + 1)
+        F[0] = T[k - 1, 1] + r * T[k, 0]
+        F[-1] = T[k - 1, m - 1] + r * T[k, m]
+        for i in range(1, m - 2):  # 空间层
+            F[i] = T[k - 1, i + 1]  # 给F赋值
+        for i in range(1, m - 1):
+            T[k, 1:-1] = np.linalg.inv(A) @ F  # 左乘A逆
+    return T.round(6)
+
+
+# 三、古典隐格式（追赶法）
+def one_dimensional_heat_conduction3(T, m, n, r):
+    a = np.ones(m - 1) * (-r)
+    a[0] = 0
+    b = np.ones(m - 1) * (1 + 2 * r)
+    c = np.ones(m - 1) * (-r)
+    c[-1] = 0
+ 
+    F = np.zeros(m - 1)  # m-1个元素，索引0~(m-2)
+    for k in range(1, n + 1):  # 时间层range(1, n + 1)
+        F[0] = T[k - 1, 1] + r * T[k, 0]
+        F[-1] = T[k - 1, m - 1] + r * T[k, m]
+        y = np.zeros(m - 1)
+        beta = np.zeros(m - 1)
+        x = np.zeros(m - 1)
+        y[0] = F[0] / b[0]
+        d = b[0]
+        for i in range(1, m - 2):  # 空间层
+            F[i] = T[k - 1, i + 1]  # 给F赋值
+        for i in range(1, m - 1):
+            beta[i - 1] = c[i - 1] / d
+            d = b[i] - a[i] * beta[i - 1]
+            y[i] = (F[i] - a[i] * y[i - 1]) / d
+        x[-1] = y[-1]
+        for i in range(m - 3, -1, -1):
+            x[i] = y[i] - beta[i] * x[i + 1]
+        T[k, 1:-1] = x
+    return T.round(6)
+
+
+# 四、Crank-Nicolson（乘逆矩阵法）
+def one_dimensional_heat_conduction4(T, m, n, r):
+    A = np.eye(m - 1, k=0) * (1 + r) + np.eye(m - 1, k=1) * (-r * 0.5) + np.eye(m - 1, k=-1) * (-r * 0.5)
+    C = np.eye(m - 1, k=0) * (1 - r) + np.eye(m - 1, k=1) * (0.5 * r) + np.eye(m - 1, k=-1) * (0.5 * r)
+ 
+    for k in range(0, n):  # 时间层
+        F = np.zeros(m - 1)  # m-1个元素，索引0~(m-2)
+        F[0] = r / 2 * (T[k, 0] + T[k + 1, 0])
+        F[-1] = r / 2 * (T[k, m] + T[k + 1, m])
+        F = C @ T[k, 1:m] + F
+        T[k + 1, 1:-1] = np.linalg.inv(A) @ F
+    return T.round(6)
+
+
+
+# 五、Crank-Nicolson（追赶法）
+def one_dimensional_heat_conduction5(T, m, n, r):
+    C = np.eye(m - 1, k=0) * (1 - r) + np.eye(m - 1, k=1) * (0.5 * r) + np.eye(m - 1, k=-1) * (0.5 * r)
+    a = np.ones(m - 1) * (-0.5 * r)
+    a[0] = 0
+    b = np.ones(m - 1) * (1 + r)
+    c = np.ones(m - 1) * (-0.5 * r)
+    c[-1] = 0
+ 
+    for k in range(0, n):  # 时间层
+        F = np.zeros(m - 1)  # m-1个元素，索引0~(m-2)
+        F[0] = r * 0.5 * (T[k, 0] + T[k + 1, 0])
+        F[-1] = r * 0.5 * (T[k, m] + T[k + 1, m])
+        F = C @ T[k, 1:m] + F
+        y = np.zeros(m - 1)
+        beta = np.zeros(m - 1)
+        x = np.zeros(m - 1)
+        y[0] = F[0] / b[0]
+        d = b[0]
+        for i in range(1, m - 1):
+            beta[i - 1] = c[i - 1] / d
+            d = b[i] - a[i] * beta[i - 1]
+            y[i] = (F[i] - a[i] * y[i - 1]) / d
+        x[-1] = y[-1]
+        for i in range(m - 3, -1, -1):
+            x[i] = y[i] - beta[i] * x[i + 1]
+        T[k + 1, 1:-1] = x
+    return T.round(6)
+
+
+def exact_solution(T, m, n, r, delta_x, delta_t):  # 偏微分方程精确解
+    for i in range(n + 1):
+        for j in range(m + 1):
+            T[i, j] = np.exp(i * delta_t + j * delta_x)
+    return T.round(6)
+a = 1  # 热传导系数
+x_max = 1
+t_max = 1
+delta_x = 0.1  # 空间步长
+delta_t = 0.1  # 时间步长
+m = int((x_max / delta_x).__round__(4))  # 长度等分成m份
+n = int((t_max / delta_t).__round__(4))  # 时间等分成n份
+t_grid = np.arange(0, t_max + delta_t, delta_t)  # 时间网格
+x_grid = np.arange(0, x_max + delta_x, delta_x)  # 位置网格
+r = (a * delta_t / (delta_x ** 2)).__round__(6)  # 网格比
+T = initial_T(x_max, t_max, delta_x, delta_t, m, n)
+print('长度等分成{}份'.format(m))
+print('时间等分成{}份'.format(n))
+print('网格比=', r)
+ 
+p = pd.ExcelWriter('有限差分法-一维热传导-题目1.xlsx')
+ 
+T1 = one_dimensional_heat_conduction1(T, m, n, r)
+T1 = pd.DataFrame(T1, columns=x_grid, index=t_grid)  # colums是列号，index是行号
+T1.to_excel(p, '古典显格式')
+ 
+T2 = one_dimensional_heat_conduction2(T, m, n, r)
+T2 = pd.DataFrame(T2, columns=x_grid, index=t_grid)  # colums是列号，index是行号
+T2.to_excel(p, '古典隐格式（乘逆矩阵法）')
+ 
+T3 = one_dimensional_heat_conduction3(T, m, n, r)
+T3 = pd.DataFrame(T3, columns=x_grid, index=t_grid)  # colums是列号，index是行号
+T3.to_excel(p, '古典隐格式（追赶法）')
+ 
+T4 = one_dimensional_heat_conduction4(T, m, n, r)
+T4 = pd.DataFrame(T4, columns=x_grid, index=t_grid)  # colums是列号，index是行号
+T4.to_excel(p, 'Crank-Nicolson格式（乘逆矩阵法）')
+ 
+T5 = one_dimensional_heat_conduction5(T, m, n, r)
+T5 = pd.DataFrame(T5, columns=x_grid, index=t_grid)  # colums是列号，index是行号
+T5.to_excel(p, 'Crank-Nicolson格式（追赶法）')
+ 
+T6 = exact_solution(T, m, n, r, delta_x, delta_t)
+T6 = pd.DataFrame(T6, columns=x_grid, index=t_grid)  # colums是列号，index是行号
+T6.to_excel(p, '偏微分方程精确解')
+ 
+p.save()
+ 
+end_time = datetime.datetime.now()
+print('运行时间为', (end_time - start_time))
+```
+
+通过比较这些方法，我们可以更好地了解不同算法在求解偏微分方程时的性能和适用场景。Crank-Nicolson方法的引入提供了一个稳定且准确的解决方案，特别适合于那些对时间步长有限制的问题。 我们的程序记录了计算过程的开始和结束时间，这样可以衡量不同方法的运算效率。这个案例不仅展示了如何在Python中实现复杂的数值算法，而且还揭示了数值解法在工程和科学研究中的重要性，特别是在解决现实世界问题时。
+
